@@ -1,0 +1,216 @@
+.create table airport_stats_passengercheckinstats (
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    airport                  : string,
+    passengersCount          : long,
+    flightsCount             : long,
+    airlinesCount            : long,
+    destinationAirportsCount : long,
+    WindowEndTime            : datetime,
+    window                   : string
+)
+
+.alter table airport_stats_passengercheckinstats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_stats_passengercheckinstats policy streamingingestion enable
+
+
+.alter table airport_stats_passengercheckinstats policy update
+```
+[
+    {
+        "IsEnabled": true,
+        "Source": "airport_events",
+        "Query": "let bags = airport_events
+| where type == 'Airport.Stats.PassengerCheckinStats' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Stats.PassengerCheckinStats' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject              = tostring(subject),
+    ___source               = tostring(source),
+    ___time                 = todatetime(['time']),
+    ___id                   = tostring(id),
+    airport                  = tostring(data.airport),
+    passengersCount          = tolong(data.passengersCount),
+    flightsCount             = tolong(data.flightsCount),
+    airlinesCount            = tolong(data.airlinesCount),
+    destinationAirportsCount = tolong(data.destinationAirportsCount),
+    WindowEndTime            = todatetime(data.WindowEndTime),
+    window                   = tostring(data.window)",
+        "IsTransactional": false,
+        "PropagateIngestionProperties": false
+    }
+]
+```
+
+
+.create table airport_stats_baggagecheckinstats (
+    ___subject               : string,
+    ___source                : string,
+    ___time                  : datetime,
+    ___id                    : string,
+    baggageCount             : long,
+    flightsCount             : long,
+    airlinesCount            : long,
+    originAirportsCount      : long,
+    destinationAirportsCount : long,
+    avgBagWeightKg           : real,
+    minBagWeightKg           : real,
+    maxBagWeightKg           : real,
+    WindowEndTime            : datetime,
+    window                   : string
+)
+
+.alter table airport_stats_baggagecheckinstats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_stats_baggagecheckinstats policy streamingingestion enable
+
+
+.alter table airport_stats_baggagecheckinstats policy update
+```
+[
+    {
+        "IsEnabled": true,
+        "Source": "airport_events",
+        "Query": "let bags = airport_events
+| where type == 'Airport.Stats.BaggageCheckinStats' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Stats.BaggageCheckinStats' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject               = tostring(subject),
+    ___source                = tostring(source),
+    ___time                  = todatetime(['time']),
+    ___id                    = tostring(id),
+    baggageCount             = tolong(data.baggageCount),
+    flightsCount             = tolong(data.flightsCount),
+    airlinesCount            = tolong(data.airlinesCount),
+    originAirportsCount      = tolong(data.originAirportsCount),
+    destinationAirportsCount = tolong(data.destinationAirportsCount),
+    avgBagWeightKg           = toreal(data.avgBagWeightKg),
+    minBagWeightKg           = toreal(data.minBagWeightKg),
+    maxBagWeightKg           = toreal(data.maxBagWeightKg),
+    WindowEndTime            = todatetime(data.WindowEndTime),
+    window                   = tostring(data.window)",
+        "IsTransactional": false,
+        "PropagateIngestionProperties": false
+    }
+]
+```
+
+
+.create table airport_stats_flightbaggagestats (
+    ___subject              : string,
+    ___source               : string,
+    ___time                 : datetime,
+    ___id                   : string,
+    flightNumber            : string,
+    flightId                : string,
+    origin                  : string,
+    baggageCount            : long,
+    uniqueBagsCount         : long,
+    passengersWithBagsCount : long,
+    avgBagWeightKg          : real,
+    minBagWeightKg          : real,
+    maxBagWeightKg          : real,
+    totalBagWeightKg        : real,
+    WindowEndTime           : datetime,
+    window                  : string
+)
+
+.alter table airport_stats_flightbaggagestats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_stats_flightbaggagestats policy streamingingestion enable
+
+
+.alter table airport_stats_flightbaggagestats policy update
+```
+[
+    {
+        "IsEnabled": true,
+        "Source": "airport_events",
+        "Query": "let bags = airport_events
+| where type == 'Airport.Stats.FlightBaggageStats' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Stats.FlightBaggageStats' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject              = tostring(subject),
+    ___source               = tostring(source),
+    ___time                 = todatetime(['time']),
+    ___id                   = tostring(id),
+    flightNumber            = tostring(data.flightNumber),
+    flightId                = tostring(data.flightId),
+    origin                  = tostring(data.origin),
+    baggageCount            = tolong(data.baggageCount),
+    uniqueBagsCount         = tolong(data.uniqueBagsCount),
+    passengersWithBagsCount = tolong(data.passengersWithBagsCount),
+    avgBagWeightKg          = toreal(data.avgBagWeightKg),
+    minBagWeightKg          = toreal(data.minBagWeightKg),
+    maxBagWeightKg          = toreal(data.maxBagWeightKg),
+    totalBagWeightKg        = toreal(data.totalBagWeightKg),
+    WindowEndTime           = todatetime(data.WindowEndTime),
+    window                  = tostring(data.window)",
+        "IsTransactional": false,
+        "PropagateIngestionProperties": false
+    }
+]
+```
+
+
+.create table airport_stats_destinationbaggageexceptionstats (
+    ___subject              : string,
+    ___source               : string,
+    ___time                 : datetime,
+    ___id                   : string,
+    flightId                : string,
+    exceptionCount          : long,
+    uniqueBagsCount         : long,
+    passengersWithBagsCount : long,
+    destination             : string,
+    window                  : string
+)
+
+.alter table airport_stats_destinationbaggageexceptionstats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_stats_destinationbaggageexceptionstats policy streamingingestion enable
+
+
+.alter table airport_stats_destinationbaggageexceptionstats policy update
+```
+[
+    {
+        "IsEnabled": true,
+        "Source": "airport_events",
+        "Query": "let bags = airport_events
+| where type == 'Airport.Stats.DestinationBaggageExceptionStats' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Stats.DestinationBaggageExceptionStats' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject              = tostring(subject),
+    ___source               = tostring(source),
+    ___time                 = todatetime(['time']),
+    ___id                   = tostring(id),
+    flightId                = tostring(data.flightId),
+    exceptionCount          = tolong(data.exceptionCount),
+    uniqueBagsCount         = tolong(data.uniqueBagsCount),
+    passengersWithBagsCount = tolong(data.passengersWithBagsCount),
+    destination             = tostring(data.destination),
+    window                  = tostring(data.window)",
+        "IsTransactional": false,
+        "PropagateIngestionProperties": false
+    }
+]
+```

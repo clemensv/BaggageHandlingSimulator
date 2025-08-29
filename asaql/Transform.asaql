@@ -1,0 +1,163 @@
+--Init Query
+WITH Events AS
+(
+  SELECT * 
+    FROM [airport-stream] TIMESTAMP BY [time]
+),
+BaggageEvents AS
+(
+    SELECT * 
+        FROM Events
+    WHERE type LIKE 'Airport.Baggage.%'    
+),
+PassengerEvents AS
+(
+    SELECT *
+        FROM Events
+    WHERE type LIKE 'Airport.Passenger.%'
+),
+BaggageExceptions AS
+(
+   SELECT * 
+     FROM BaggageEvents
+   WHERE type = 'Airport.Baggage.Rejected' OR 
+         type = 'Airport.Baggage.CustomsWithheld' OR 
+         type = 'Airport.Baggage.NotCollected'
+),
+AirportPassengerCheckinStats AS
+(
+    SELECT data.origin AS airport,
+        COUNT(*) AS passengersCount, 
+        COUNT(DISTINCT data.flightId) AS flightsCount,
+        COUNT(DISTINCT data.airline) AS airlinesCount,
+        COUNT(DISTINCT data.destination) AS destinationAirportsCount,
+        MAX(time) AS WindowEndTime,
+        MAX(time) AS time,
+        System.Window().Id AS [window]
+    FROM PassengerEvents
+    WHERE type = 'Airport.Passenger.Checkin'
+    GROUP BY data.origin, Windows(Window('perminute', HoppingWindow(minute, 1, 1)), Window('perhour',HoppingWindow(minute, 60, 1)))
+),
+BaggageCheckinStats AS
+(
+    SELECT data.origin AS airport,
+        COUNT(*) AS baggageCount,
+        COUNT(DISTINCT data.flightId) AS flightsCount,
+        COUNT(DISTINCT data.airline) AS airlinesCount,
+        COUNT(DISTINCT data.origin) AS originAirportsCount,
+        COUNT(DISTINCT data.destination) AS destinationAirportsCount,
+        AVG(data.weightKg) AS avgBagWeightKg,
+        MIN(data.weightKg) AS minBagWeightKg,
+        MAX(weightKg) AS maxBagWeightKg,
+        MAX(time) AS WindowEndTime,
+        MAX(time) AS time,
+        System.Window().Id AS [window]
+    FROM BaggageEvents
+    WHERE type = 'Airport.Baggage.Checkin'
+    GROUP BY Windows(Window('perhour',HoppingWindow(minute, 60, 1)),Window('perminute',HoppingWindow(minute, 1, 1))), data.origin
+),
+FlightBaggageStats AS
+(
+    SELECT data.flightNumber AS flightNumber,
+        data.flightId AS flightId, 
+        data.origin AS origin,
+        COUNT(*) AS baggageCount,
+        COUNT(DISTINCT data.bagId) AS uniqueBagsCount,
+        COUNT(DISTINCT data.paxId) AS passengersWithBagsCount,
+        AVG(data.weightKg) AS avgBagWeightKg,
+        MIN(data.weightKg) AS minBagWeightKg,
+        MAX(data.weightKg) AS maxBagWeightKg,
+        SUM(data.weightKg) AS totalBagWeightKg,
+        MAX(time) AS WindowEndTime,
+        MAX(time) AS time,
+        'total' AS [window]
+    FROM BaggageEvents
+    WHERE type = 'Airport.Baggage.Checkin'
+    GROUP BY data.flightId, data.flightNumber, data.origin, HoppingWindow(minute, 180, 1)
+),
+DestinationBaggageExceptionStats AS
+(
+    SELECT bex.data.flightId AS flightId,
+        COUNT(*) AS exceptionCount,
+        COUNT(DISTINCT bex.data.bagId) AS uniqueBagsCount,
+        COUNT(DISTINCT bex.data.paxId) AS passengersWithBagsCount,
+        checkin.data.destination AS destination,
+        MAX(bex.time) AS WindowEndTime,
+        MAX(bex.time) AS time,
+        System.Window().Id AS [window]
+    FROM BaggageExceptions AS bex JOIN BaggageEvents AS checkin ON DATEDIFF(hour,bex,checkin) BETWEEN 0 AND 24 AND bex.data.bagId = checkin.data.bagId
+    WHERE checkin.type = 'Airport.Baggage.Checkin'
+    GROUP BY bex.data.flightId, checkin.data.destination, Windows(Window('perhour',HoppingWindow(minute, 60, 1)),Window('perminute',HoppingWindow(minute, 1, 1)))
+)
+
+SELECT specversion,
+       [time],
+       id,
+       type,
+       subject,
+       source,
+       datacontenttype,
+       data
+INTO [processed-airport-data]
+FROM Events
+UNION ALL
+/* Airport.Stats.PassengerCheckinStats */
+SELECT
+   '1.0' AS specversion,
+   MAX(time) AS [time],
+   CONCAT(CAST(MAX(time) AS nvarchar(max)), '-', airport) AS id,
+   'Airport.Stats.PassengerCheckinStats' AS type,
+   airport AS subject,
+   airport AS source,
+   'application/json' AS datacontenttype,
+   COLLECT() AS data
+FROM AirportPassengerCheckinStats
+GROUP BY
+    TumblingWindow(minute, 1),
+    airport
+UNION ALL
+/* Airport.Stats.BaggageCheckinStats */
+SELECT
+   '1.0' AS specversion,
+   MAX(time) AS [time],
+   CONCAT(CAST(MAX(time) AS nvarchar(max)), '-', 'system') AS id,
+   'Airport.Stats.BaggageCheckinStats' AS type,
+   airport AS subject,
+   'system' AS source,
+   'application/json' AS datacontenttype,
+   COLLECT() AS data
+FROM BaggageCheckinStats
+GROUP BY
+    TumblingWindow(minute, 1),
+    airport
+UNION ALL
+/* Airport.Stats.FlightBaggageStats */
+SELECT
+   '1.0' AS specversion,
+   MAX(time) AS [time],
+   CONCAT(CAST(MAX(time) AS nvarchar(max)), '-', flightNumber) AS id,
+   'Airport.Stats.FlightBaggageStats' AS type,
+   flightNumber AS subject,
+   flightNumber AS source,
+   'application/json' AS datacontenttype,
+   COLLECT() AS data
+FROM FlightBaggageStats
+GROUP BY
+    TumblingWindow(minute, 1),
+    origin, flightNumber
+UNION ALL
+/* Airport.Stats.DestinationBaggageExceptionStats */
+SELECT
+   '1.0' AS specversion,
+   MAX(time) AS [time],
+   CONCAT(CAST(MAX(time) AS nvarchar(max)), '-', destination) AS id,
+   'Airport.Stats.DestinationBaggageExceptionStats' AS type,
+   flightId AS subject,
+   destination AS source,
+   'application/json' AS datacontenttype,
+   COLLECT() AS data
+FROM DestinationBaggageExceptionStats
+GROUP BY
+    TumblingWindow(minute, 1),
+    flightId,
+    destination

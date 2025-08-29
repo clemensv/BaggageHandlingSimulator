@@ -1,0 +1,453 @@
+.create table airport_passenger_checkin
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    flightNumber : string,
+    airline      : string,
+    origin       : string,
+    destination  : string,
+    departureUtc : string,
+    paxId        : string,
+    name         : string
+)
+
+.alter table airport_passenger_checkin policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_passenger_checkin policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Passenger.Checkin' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Passenger.Checkin' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId     = tostring(data.flightId),
+    flightNumber = tostring(data.flightNumber),
+    airline      = tostring(data.airline),
+    origin       = tostring(data.origin),
+    destination  = tostring(data.destination),
+    departureUtc = tostring(data.departureUtc),
+    paxId        = tostring(data.paxId),
+    name         = tostring(data.name)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_checkin
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    flightNumber : string,
+    airline      : string,
+    origin       : string,
+    destination  : string,
+    departureUtc : string,
+    bagId        : string,
+    paxId        : string,
+    weightKg     : real
+)
+
+.alter table airport_baggage_checkin policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_checkin policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.Checkin' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.Checkin' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId     = tostring(data.flightId),
+    flightNumber = tostring(data.flightNumber),
+    airline      = tostring(data.airline),
+    origin       = tostring(data.origin),
+    destination  = tostring(data.destination),
+    departureUtc = tostring(data.departureUtc),
+    bagId        = tostring(data.bagId),
+    paxId        = tostring(data.paxId),
+    weightKg     = toreal(data.weightKg)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_screened
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_screened policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_screened policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.Screened' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.Screened' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_inspected
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_inspected policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_inspected policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.Inspected' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.Inspected' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_rejected
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_rejected policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_rejected policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.Rejected' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.Rejected' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_loaded
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_loaded policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_loaded policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.Loaded' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.Loaded' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_unloaded
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_unloaded policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_unloaded policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.Unloaded' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.Unloaded' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_customs_screened
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_customs_screened policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_customs_screened policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.CustomsScreened' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.CustomsScreened' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_customs_withheld
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_customs_withheld policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_customs_withheld policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.CustomsWithheld' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.CustomsWithheld' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_delivered_on_belt
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_delivered_on_belt policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_delivered_on_belt policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.DeliveredOnBelt' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.DeliveredOnBelt' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+.create table airport_baggage_not_collected
+(
+    ___subject   : string,
+    ___source    : string,
+    ___time      : datetime,
+    ___id        : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table airport_baggage_not_collected policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_baggage_not_collected policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.NotCollected' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.NotCollected' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___subject = tostring(subject),
+    ___source  = tostring(source),
+    ___time    = todatetime(['time']),
+    ___id      = tostring(id),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```

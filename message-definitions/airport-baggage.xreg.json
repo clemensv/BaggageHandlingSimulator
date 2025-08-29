@@ -1,0 +1,382 @@
+{
+  "specversion": "1.0-rc2",
+  "messagegroups": {
+    "Airport.Baggage": {
+      "envelope": "CloudEvents/1.0",
+      "description": "Operational events for airport baggage handling and passenger check-in",
+      "messages": {
+        "Airport.Passenger.Checkin": {
+          "description": "Passenger checks in at origin airport",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Passenger.Checkin", "description": "Passenger check-in" },
+            "source": { "type": "uritemplate", "description": "source airport", "value": "{airport}" },
+            "subject": { "type": "string", "description": "flight/pax subject" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Passenger.CheckinEventData"
+        },
+        "Airport.Baggage.Checkin": {
+          "description": "Bag is checked in",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.Checkin", "description": "Bag check-in" },
+            "source": { "type": "uritemplate", "description": "source airport", "value": "{airport}" },
+            "subject": { "type": "string", "description": "flight/bag subject" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.CheckinEventData"
+        },
+        "Airport.Baggage.Screened": {
+          "description": "Bag screened",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.Screened" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.ScreenedEventData"
+        },
+        "Airport.Baggage.Inspected": {
+          "description": "Bag inspected",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.Inspected" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.InspectedEventData"
+        },
+        "Airport.Baggage.Rejected": {
+          "description": "Bag rejected",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.Rejected" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.RejectedEventData"
+        },
+        "Airport.Baggage.Loaded": {
+          "description": "Bag loaded onto aircraft",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.Loaded" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.LoadedEventData"
+        },
+        "Airport.Baggage.Unloaded": {
+          "description": "Bag unloaded at destination",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.Unloaded" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.UnloadedEventData"
+        },
+        "Airport.Baggage.CustomsScreened": {
+          "description": "Bag screened by customs",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.CustomsScreened" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.CustomsScreenedEventData"
+        },
+        "Airport.Baggage.CustomsWithheld": {
+          "description": "Bag withheld by customs",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.CustomsWithheld" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.CustomsWithheldEventData"
+        },
+        "Airport.Baggage.DeliveredOnBelt": {
+          "description": "Bag delivered on belt",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.DeliveredOnBelt" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.DeliveredOnBeltEventData"
+        },
+        "Airport.Baggage.NotCollected": {
+          "description": "Bag not collected by passenger",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Baggage.NotCollected" },
+            "source": { "type": "uritemplate", "value": "{airport}" },
+            "subject": { "type": "string" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Baggage/schemas/Airport.Baggage.NotCollectedEventData"
+        }
+      }
+    }
+  },
+  "schemagroups": {
+    "Airport.Baggage": {
+      "schemas": {
+        "Airport.Passenger.CheckinEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "PassengerCheckinEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier (sim-generated hex)" },
+                  { "name": "flightNumber", "type": "string", "doc": "Airline flight number (e.g. AZ0123)" },
+                  { "name": "airline", "type": "string", "doc": "Airline code (IATA-like)" },
+                  { "name": "origin", "type": "string", "doc": "Origin airport code (3-letter)" },
+                  { "name": "destination", "type": "string", "doc": "Destination airport code (3-letter)" },
+                  { "name": "departureUtc", "type": "string", "doc": "Scheduled departure time in ISO-8601 UTC" },
+                  { "name": "paxId", "type": "string", "doc": "Passenger identifier" },
+                  { "name": "name", "type": "string", "doc": "Passenger display name" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.CheckinEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageCheckinEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier (sim-generated hex)" },
+                  { "name": "flightNumber", "type": "string", "doc": "Airline flight number" },
+                  { "name": "airline", "type": "string", "doc": "Airline code" },
+                  { "name": "origin", "type": "string", "doc": "Origin airport code" },
+                  { "name": "destination", "type": "string", "doc": "Destination airport code" },
+                  { "name": "departureUtc", "type": "string", "doc": "Scheduled departure UTC timestamp" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" },
+                  { "name": "paxId", "type": "string", "doc": "Passenger identifier owning the bag" },
+                  { "name": "weightKg", "type": ["float", "double"], "doc": "Bag weight in kilograms" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.ScreenedEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageScreenedEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.InspectedEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageInspectedEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.RejectedEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageRejectedEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.LoadedEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageLoadedEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.UnloadedEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageUnloadedEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.CustomsScreenedEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageCustomsScreenedEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.CustomsWithheldEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageCustomsWithheldEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.DeliveredOnBeltEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageDeliveredOnBeltEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        },
+        "Airport.Baggage.NotCollectedEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "record",
+                "name": "BaggageNotCollectedEventData",
+                "namespace": "Airport.Baggage",
+                "fields": [
+                  { "name": "flightId", "type": "string", "doc": "Unique flight identifier" },
+                  { "name": "bagId", "type": "string", "doc": "Bag identifier" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

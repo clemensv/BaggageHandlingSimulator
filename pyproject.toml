@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "baggage-handling-simulator"
+version = "0.1.0"
+description = "Airport baggage handling simulator that publishes CloudEvents to Azure Event Hubs and stores flight schedules in SQL Server"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Airport Sim Team" }
+]
+dependencies = [
+  "azure-eventhub>=5.12.0",
+  "pyodbc>=5.1.0",
+  "pydantic>=2.7.0",
+  "python-dateutil>=2.8.2",
+  "tzdata>=2024.1",
+  "cloudevents>=1.10.0",
+  "rich>=13.7.0",
+]
+
+[project.scripts]
+bhsim = "baggage_simulator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

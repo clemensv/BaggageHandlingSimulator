@@ -1,0 +1,184 @@
+{
+  "specversion": "1.0-rc2",
+  "messagegroups": {
+    "Airport.Stats": {
+      "envelope": "CloudEvents/1.0",
+      "description": "Aggregated airport baggage and passenger statistics produced by Stream Analytics",
+      "messages": {
+        "Airport.Stats.PassengerCheckinStats": {
+          "description": "Per-airport passenger check-in statistics (sliding window)",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Stats.PassengerCheckinStats", "description": "Passenger check-in statistics" },
+            "source": { "type": "uritemplate", "description": "origin airport", "value": "{airport}" },
+            "subject": { "type": "string", "description": "airport subject (airport code)" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Stats/schemas/Airport.Stats.PassengerCheckinStatsEventData"
+        },
+        "Airport.Stats.BaggageCheckinStats": {
+          "description": "System-wide baggage check-in statistics (sliding window)",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Stats.BaggageCheckinStats", "description": "Baggage check-in statistics" },
+            "source": { "type": "string", "description": "system source", "value": "system" },
+            "subject": { "type": "string", "description": "system subject", "value": "system" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Stats/schemas/Airport.Stats.BaggageCheckinStatsEventData"
+        },
+        "Airport.Stats.FlightBaggageStats": {
+          "description": "Per-flight baggage statistics (sliding window)",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Stats.FlightBaggageStats", "description": "Flight baggage statistics" },
+            "source": { "type": "uritemplate", "description": "origin airport", "value": "{origin}" },
+            "subject": { "type": "string", "description": "flightNumber subject" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Stats/schemas/Airport.Stats.FlightBaggageStatsEventData"
+        },
+        "Airport.Stats.DestinationBaggageExceptionStats": {
+          "description": "Per-destination baggage exception statistics (sliding window)",
+          "envelope": "CloudEvents/1.0",
+          "envelopemetadata": {
+            "id": { "required": true },
+            "type": { "value": "Airport.Stats.DestinationBaggageExceptionStats", "description": "Destination baggage exception statistics" },
+            "source": { "type": "uritemplate", "description": "destination airport", "value": "{destination}" },
+            "subject": { "type": "string", "description": "destination subject (airport code)" },
+            "time": { "required": true }
+          },
+          "datacontenttype": "application/json",
+          "dataschemaformat": "Avro/1.12",
+          "dataschemauri": "/schemagroups/Airport.Stats/schemas/Airport.Stats.DestinationBaggageExceptionStatsEventData"
+        }
+      }
+    }
+  },
+  "schemagroups": {
+    "Airport.Stats": {
+      "schemas": {
+        "Airport.Stats.PassengerCheckinStatsEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "PassengerCheckinStatsEventDataItem",
+                  "namespace": "Airport.Stats",
+                  "fields": [
+                    { "name": "airport", "type": "string", "doc": "Airport code (origin)" },
+                    { "name": "passengersCount", "type": "long", "doc": "Number of passengers in window" },
+                    { "name": "flightsCount", "type": "long", "doc": "Number of distinct flights in window" },
+                    { "name": "airlinesCount", "type": "long", "doc": "Number of distinct airlines in window" },
+                    { "name": "destinationAirportsCount", "type": "long", "doc": "Number of distinct destination airports in window" },
+                    { "name": "WindowEndTime", "type": "string", "doc": "Window end timestamp (ISO-8601 UTC)" },
+                    { "name": "window", "type": "string", "doc": "Window" }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "Airport.Stats.BaggageCheckinStatsEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "BaggageCheckinStatsEventDataItem",
+                  "namespace": "Airport.Stats",
+                  "fields": [
+                    { "name": "airport", "type": "string", "doc": "Airport code (origin)" },
+                    { "name": "baggageCount", "type": "long", "doc": "Number of bags checked in during window" },
+                    { "name": "flightsCount", "type": "long", "doc": "Number of distinct flights in window" },
+                    { "name": "airlinesCount", "type": "long", "doc": "Number of distinct airlines in window" },
+                    { "name": "destinationAirportsCount", "type": "long", "doc": "Number of distinct destination airports in window" },
+                    { "name": "avgBagWeightKg", "type": ["float", "double"], "doc": "Average bag weight in kg" },
+                    { "name": "minBagWeightKg", "type": ["float", "double"], "doc": "Minimum bag weight in kg" },
+                    { "name": "maxBagWeightKg", "type": ["float", "double"], "doc": "Maximum bag weight in kg" },
+                    { "name": "WindowEndTime", "type": "string", "doc": "Window end timestamp (ISO-8601 UTC)" },
+                    { "name": "window", "type": "string", "doc": "Window" }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "Airport.Stats.FlightBaggageStatsEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "FlightBaggageStatsEventDataItem",
+                  "namespace": "Airport.Stats",
+                  "fields": [
+                    { "name": "flightNumber", "type": "string", "doc": "Airline flight number (e.g. AZ0123)" },
+                    { "name": "flightId", "type": "string", "doc": "Unique flight identifier (sim-generated hex)" },
+                    { "name": "origin", "type": "string", "doc": "Origin airport code (3-letter)" },
+                    { "name": "baggageCount", "type": "long", "doc": "Number of bags in window" },
+                    { "name": "uniqueBagsCount", "type": "long", "doc": "Number of distinct bag IDs in window" },
+                    { "name": "passengersWithBagsCount", "type": "long", "doc": "Number of distinct passengers with bags in window" },
+                    { "name": "avgBagWeightKg", "type": ["float", "double"], "doc": "Average bag weight in kg" },
+                    { "name": "minBagWeightKg", "type": ["float", "double"], "doc": "Minimum bag weight in kg" },
+                    { "name": "maxBagWeightKg", "type": ["float", "double"], "doc": "Maximum bag weight in kg" },
+                    { "name": "totalBagWeightKg", "type": ["float", "double"], "doc": "Total bag weight in kg" },
+                    { "name": "WindowEndTime", "type": "string", "doc": "Window end timestamp (ISO-8601 UTC)" },
+                    { "name": "window", "type": "string", "doc": "Window" }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "Airport.Stats.DestinationBaggageExceptionStatsEventData": {
+          "format": "Avro/1.12",
+          "defaultversionid": "1",
+          "versions": {
+            "1": {
+              "format": "Avro/1.12",
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "DestinationBaggageExceptionStatsEventDataItem",
+                  "namespace": "Airport.Stats",
+                  "fields": [
+                    { "name": "flightId", "type": "string", "doc": "Unique flight identifier (sim-generated hex)" },
+                    { "name": "exceptionCount", "type": "long", "doc": "Number of exception events in window" },
+                    { "name": "uniqueBagsCount", "type": "long", "doc": "Number of distinct bag IDs with exceptions in window" },
+                    { "name": "passengersWithBagsCount", "type": "long", "doc": "Number of distinct passengers with affected bags in window" },
+                    { "name": "destination", "type": "string", "doc": "Destination airport code (3-letter)" },
+                    { "name": "window", "type": "string", "doc": "Window" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+.create table airport_events (
+    id: string,
+    source: string,
+    specversion: string,
+    type: string,
+    datacontenttype: string,    
+    dataschema: string,
+    subject: string,
+    ['time']: datetime,
+    data: dynamic,
+    seriesclock: datetime
+)
+
+.alter table airport_events policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table airport_events policy streamingingestion enable
+
+.create-or-alter table airport_events ingestion json mapping "airport_events_mapping"
+```
+[
+    {
+        "column": "id",
+        "path": "$.id",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "source",
+        "path": "$.source",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "specversion",
+        "path": "$.specversion",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "type",
+        "path": "$.type",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "datacontenttype",
+        "path": "$.datacontenttype",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "dataschema",
+        "path": "$.dataschema",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "subject",
+        "path": "$.subject",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "time",
+        "path": "$.time",
+        "datatype": "datetime",
+        "transform": null
+    },
+    {
+        "column": "data",
+        "path": "$.data",
+        "datatype": "dynamic",
+        "transform": null
+    }
+]
+```
