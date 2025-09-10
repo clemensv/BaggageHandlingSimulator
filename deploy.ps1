@@ -9,6 +9,8 @@ param(
         [string]$EventHubConnectionString = "",
         [string]$EventHubName = "",
         [string]$SqlConnectionString = "",
+    [switch]$ManagedIdentity,
+    [string]$Command = "",
         [switch]$NonInteractive,
         [switch]$Help
 )
@@ -26,6 +28,8 @@ Parameters:
     -EventHubConnectionString <cs> Event Hubs connection string (required)
     -EventHubName <hub>            Event Hub name (if not in connection string)
     -SqlConnectionString <cs>      Optional SQL Server ODBC connection string
+    -ManagedIdentity               Enable system-assigned managed identity on container instance
+    -Command <cmd>                 Override container command (e.g. 'bhsim --clock-speed 1 ...')
     -NonInteractive                Do not prompt; fail for missing required values
     -Help                          Show this help
 
@@ -124,6 +128,10 @@ $existingContainer = az container show --resource-group $ResourceGroup --name $A
 $envArgs = @('--secure-environment-variables', "EVENTHUB_CONNECTION_STRING=$EventHubConnectionString")
 if ($EventHubName) { $envArgs += @('--environment-variables', "EVENTHUB_NAME=$EventHubName") }
 if ($SqlConnectionString) { $envArgs += @('--secure-environment-variables', "SQLSERVER_CONNECTION_STRING=$SqlConnectionString") }
+if ($ManagedIdentity) { $envArgs += @('--assign-identity') }
+
+$commandArgs = @()
+if ($Command) { $commandArgs = @('--command-line', $Command) }
 
 if (-not $existingContainer) {
     az container create --resource-group $ResourceGroup `
@@ -133,6 +141,7 @@ if (-not $existingContainer) {
         --memory 2 `
         --restart-policy Always `
         @envArgs `
+        @commandArgs `
         --registry-password $registryPassword `
         --registry-username $registryUsername | Out-Null
     Write-Host "Container '$AppName' created."    

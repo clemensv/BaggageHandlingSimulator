@@ -20,6 +20,8 @@ ConnectionStringSecret="" # Event Hubs connection string (may include EntityPath
 EventHubName=""            # Optional explicit Event Hub name if not in connection string
 SqlConnectionString=""     # Optional SQL connection string
 NonInteractive=0
+ManagedIdentity=0
+CustomCommand=""
 
 usage() {
     cat <<EOF
@@ -35,6 +37,8 @@ Options:
     --eventhub-name NAME            Event Hub name (if not part of connection string)
     --sql-connection STRING         Optional SQL Server ODBC connection string
     --non-interactive | -y          Fail instead of prompting for missing required inputs
+    --managed-identity              Enable system-assigned managed identity for the container instance
+    --command CMD                   Override container command (e.g. "bhsim --clock-speed 1 ...")
     -h | --help                     Show this help
 
 Examples:
@@ -57,6 +61,8 @@ while [[ $# -gt 0 ]]; do
         --eventhub-name) EventHubName="$2"; shift 2;;
         --sql-connection|--sql-connection-string) SqlConnectionString="$2"; shift 2;;
         --non-interactive|-y|--yes) NonInteractive=1; shift;;
+    --managed-identity) ManagedIdentity=1; shift;;
+    --command) CustomCommand="$2"; shift 2;;
         -h|--help) usage; exit 0;;
         *) echo "Unknown argument: $1" >&2; usage; exit 1;;
     esac
@@ -174,6 +180,12 @@ if [[ -n "$EventHubName" ]]; then
 fi
 if [[ -n "$SqlConnectionString" ]]; then
     createArgs+=( --secure-environment-variables SQLSERVER_CONNECTION_STRING="$SqlConnectionString" )
+fi
+if [[ $ManagedIdentity -eq 1 ]]; then
+    createArgs+=( --assign-identity )
+fi
+if [[ -n "$CustomCommand" ]]; then
+    createArgs+=( --command-line "$CustomCommand" )
 fi
 
 if [[ -z "$existingContainer" ]]; then
