@@ -451,3 +451,59 @@ bags
   }
 ]
 ```
+
+
+.create table flights
+(
+    flightId            : string,
+    airline             : string,
+    flightNumber        : string,
+    aircraft            : string,
+    origin              : string,
+    destination         : string,
+    departureUtc        : datetime,
+    arrival             : datetime,
+    actualDepartureUtc  : datetime,
+    actualArrival       : datetime,
+    checkinClosed       : datetime,
+    completed           : datetime,
+    capacity            : long,
+    created             : datetime,
+    updated             : datetime
+)
+
+.alter table flights policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table flights policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "flight_ops_db.dbo.Flights_v1",
+    "Query": "['flight_ops_db.dbo.Flights_v1'] 
+| project after
+| project flightId=tostring(after.FlightId),
+          airline=tostring(after.Airline),
+          flightNumber=tostring(after.FlightNumber),
+          aircraft=tostring(after.Aircraft),
+          origin=tostring(after.Origin),
+          destination=tostring(after.Destination),
+          departureUtc=unixtime_nanoseconds_todatetime(tolong(after.DepartureUtc)),
+          arrival=unixtime_nanoseconds_todatetime(tolong(after.ArrivalUtc)),
+          actualDepartureUtc=unixtime_nanoseconds_todatetime(tolong(after.ActualDepartureUtc)),
+          actualArrival=unixtime_nanoseconds_todatetime(tolong(after.ActualArrivalUtc)),
+          checkinClosed=unixtime_nanoseconds_todatetime(tolong(after.CheckinClosedUtc)),
+          completed=unixtime_nanoseconds_todatetime(tolong(after.CompletedUtc)),
+          capacity=tolong(after.Capacity),
+          created=unixtime_nanoseconds_todatetime(tolong(after.CreatedUtc))",
+          updated=now()",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+.create materialized-view flights_current on table flights {
+    flights
+    | summarize arg_max(updated, *) by flightId
+}

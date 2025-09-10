@@ -28,13 +28,13 @@ import numbers
 # CloudEvents helper using official SDK
 
 
-def cloudevent(event_type: str, source: str, subject: str, data: Dict[str, Any]) -> CloudEvent:
+def cloudevent(event_type: str, source: str, subject: str, data: Dict[str, Any], sim_time: Optional[datetime] = None) -> CloudEvent:
     attrs = {
         "id": _rand_id(),
         "type": event_type,
         "source": source,
         "subject": subject,
-        "time": datetime.now(timezone.utc).isoformat(),
+        "time": (sim_time or datetime.now(timezone.utc)).isoformat(),
         "datacontenttype": "application/json",
     }
     return CloudEvent(attrs, data)
@@ -496,7 +496,7 @@ class Simulator:
                 if now_sim >= next_flight_at_sim and can_schedule_more:
                     flight = self._create_flight(now_sim)
                     self._insert_flight_sql(flight)
-                    self._active_flights[flight.flight_id] = self._state_for_flight(flight)
+                    self._active_flights[flight.flight_id] = self._state_for_flight(flight, now_sim)
                     self._log(
                         f"✈️ Scheduled {flight.flight_number} {flight.origin}->{flight.destination} "
                         f"dep {flight.departure_utc.isoformat()}Z arr {flight.arrival_utc.isoformat()}Z "
@@ -610,15 +610,39 @@ class Simulator:
         Scheduling rule used here ensures check-in will start within the next
         ~20 simulated minutes by setting departure to now + 3h..3h20m. Arrival
         is derived from a route-duration heuristic to produce realistic block times.
+        
+        Special case: When clock_speed is 1, schedule flights for 1 hour from current 
+        time and begin check-in immediately.
         """
         airline = self._rng.choice(self._airlines)
         aircraft, (minc, maxc) = self._rng.choice(list(ALLOWED_AIRCRAFT.items()))
         capacity = self._rng.randint(minc, maxc)
-        origin, destination = self._rng.choice(self._airports)
-        # schedule departure so that check-in starts within next 20 sim minutes
-        # check-in start is departure - 3h, so set departure to now + 3h .. 3h20m
-        dep_in = timedelta(hours=3, minutes=self._rng.uniform(0, 20))
-        dep = now_sim + dep_in
+        
+        # Special handling for clock_speed = 1: only use short-duration routes (≤1.5 hours)
+        if self.cfg.clock_speed == 1:
+            # Real-time mode: restrict to routes with estimated duration <= 1.5h.
+            # We predefine a small whitelist of known short routes (also verified in route table) and intersect
+            # with configured airport pairs to avoid repeatedly sampling and rejecting.
+            short_routes = {(
+                "FRA", "LHR"), ("LHR", "FRA"), ("FRA", "CDG"), ("CDG", "FRA"), ("MUC", "FRA"), ("FRA", "MUC")
+            }
+            available_short_routes = [pair for pair in self._airports if pair in short_routes]
+            if not available_short_routes:
+                # Fallback: dynamically filter any route with duration <=1.5h from the configured list
+                dyn_short = []
+                for o, d in self._airports:
+                    if self._estimate_duration_hours(o, d) <= 1.5:
+                        dyn_short.append((o, d))
+                available_short_routes = dyn_short or list(self._airports)
+            origin, destination = self._rng.choice(available_short_routes)
+            dep = now_sim + timedelta(hours=1)
+        else:
+            origin, destination = self._rng.choice(self._airports)
+            # Normal scheduling: departure so that check-in starts within next 20 sim minutes
+            # check-in start is departure - 3h, so set departure to now + 3h .. 3h20m
+            dep_in = timedelta(hours=3, minutes=self._rng.uniform(0, 20))
+            dep = now_sim + dep_in
+            
         # plausible route-based duration
         dur_hours = self._estimate_duration_hours(origin, destination)
         arr = dep + timedelta(hours=dur_hours)
@@ -665,7 +689,7 @@ class Simulator:
             ),
         )
 
-    def _state_for_flight(self, f: Flight) -> Dict[str, Any]:
+    def _state_for_flight(self, f: Flight, now_sim: datetime) -> Dict[str, Any]:
         """Create per-flight mutable state used by the simulator loop.
 
         This returns a dictionary containing passenger and bag lists, timeline
@@ -685,15 +709,26 @@ class Simulator:
                 bags[b.bag_id] = b
 
         # Initial timeline with explicit offsets relative to departure:
-        # - Check-in starts 3h before departure
+        # - Check-in starts 3h before departure (or immediately if clock_speed=1)
         # - Check-in ends 60m before departure (i.e., 30m before loading starts)
         # - Loading starts 30m before departure
+        if self.cfg.clock_speed == 1:
+            # For real-time simulation: immediate check-in, shorter windows
+            checkin_start = now_sim
+            checkin_end = f.departure_utc - timedelta(minutes=10)  # Check-in closes 10min before departure
+            load_start = f.departure_utc - timedelta(minutes=5)   # Loading starts 5min before departure
+        else:
+            # Normal scheduling: check-in starts 3h before departure
+            checkin_start = f.departure_utc - timedelta(hours=3)
+            checkin_end = f.departure_utc - timedelta(minutes=60)
+            load_start = f.departure_utc - timedelta(minutes=30)
+            
         timeline = {
             "depart": f.departure_utc,
             "arrive": f.arrival_utc,
-            "checkin_start": f.departure_utc - timedelta(hours=3),
-            "checkin_end": f.departure_utc - timedelta(minutes=60),
-            "load_start": f.departure_utc - timedelta(minutes=30),
+            "checkin_start": checkin_start,
+            "checkin_end": checkin_end,
+            "load_start": load_start,
         }
 
         return {
@@ -765,6 +800,7 @@ class Simulator:
                                 "departureUtc": f.departure_utc.isoformat(),
                                 "arrivalUtc": f.arrival_utc.isoformat(),
                             },
+                            sim_time=now_sim,
                         ),
                     )
                     emitted.add("flight_closed")
@@ -824,6 +860,7 @@ class Simulator:
                                 "departureUtc": f.departure_utc.isoformat(),
                                 "arrivalUtc": f.arrival_utc.isoformat(),
                             },
+                            sim_time=now_sim,
                         ),
                     )
                     emitted.add("flight_departed")
@@ -849,6 +886,7 @@ class Simulator:
                                 "departureUtc": f.departure_utc.isoformat(),
                                 "arrivalUtc": f.arrival_utc.isoformat(),
                             },
+                            sim_time=now_sim,
                         ),
                     )
                     emitted.add("flight_arrived")
@@ -867,10 +905,16 @@ class Simulator:
     def _align_timeline_from_depart(self, st: Dict[str, Any], now_sim: Optional[datetime] = None) -> None:
         """Recompute timeline checkpoints from current departure time.
 
-        Rules:
+        Rules for normal operation:
         - load_start = max(now - 15m, depart - 30m) so the window always includes "now"
         - checkin_end = depart - 60m (only if flight not yet closed)
         - checkin_start = depart - 3h (only if flight not yet closed)
+        
+        Rules for clock-speed=1:
+        - load_start = max(now - 15m, depart - 5m) 
+        - checkin_end = depart - 10m (only if flight not yet closed)
+        - checkin_start stays at original immediate time (only if flight not yet closed)
+        
         Arrival stays as set by upstream logic.
         """
         tl = st.get("timeline", {})
@@ -881,11 +925,21 @@ class Simulator:
         # Always align load start relative to depart and ensure it includes current time window
         if now_sim is None:
             now_sim = self.now()
-        tl["load_start"] = max(depart - timedelta(minutes=30), now_sim - timedelta(minutes=15))
-        # Only shift check-in times if not yet closed
-        if "flight_closed" not in emitted:
-            tl["checkin_end"] = depart - timedelta(minutes=60)
-            tl["checkin_start"] = depart - timedelta(hours=3)
+            
+        if self.cfg.clock_speed == 1:
+            # Shorter windows for real-time simulation
+            tl["load_start"] = max(depart - timedelta(minutes=5), now_sim - timedelta(minutes=15))
+            # Only shift check-in times if not yet closed
+            if "flight_closed" not in emitted:
+                tl["checkin_end"] = depart - timedelta(minutes=10)
+                # Don't change checkin_start for clock_speed=1 - keep original immediate start
+        else:
+            # Normal operation
+            tl["load_start"] = max(depart - timedelta(minutes=30), now_sim - timedelta(minutes=15))
+            # Only shift check-in times if not yet closed
+            if "flight_closed" not in emitted:
+                tl["checkin_end"] = depart - timedelta(minutes=60)
+                tl["checkin_start"] = depart - timedelta(hours=3)
 
     def _update_flight_actual_time(self, flight_id: str, actual_departure: Optional[datetime] = None, actual_arrival: Optional[datetime] = None) -> None:
         """Update the SQL row for the given flight with actual departure/arrival if provided."""
@@ -996,6 +1050,7 @@ class Simulator:
                         "paxId": p.pax_id,
                         "name": p.name,
                     },
+                    sim_time=now_sim,
                 ),
             )
             for b in p.bags:
@@ -1017,6 +1072,7 @@ class Simulator:
                             "paxId": p.pax_id,
                             "weightKg": round(b.weight_kg, 2),
                         },
+                        sim_time=now_sim,
                     ),
                 )
                 b.status = "checked_in"
@@ -1029,6 +1085,7 @@ class Simulator:
                         f"{f.origin}",
                         subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                         data={"flightId": f.flight_id, "bagId": b.bag_id},
+                        sim_time=now_sim,
                     ),
                 )
                 if self._rng.random() < self.cfg.inspect_rate:
@@ -1039,6 +1096,7 @@ class Simulator:
                             f"{f.origin}",
                             subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                             data={"flightId": f.flight_id, "bagId": b.bag_id},
+                            sim_time=now_sim,
                         ),
                     )
                 if self._rng.random() < self.cfg.reject_rate:
@@ -1050,6 +1108,7 @@ class Simulator:
                             f"{f.origin}",
                             subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                             data={"flightId": f.flight_id, "bagId": b.bag_id},
+                            sim_time=now_sim,
                         ),
                     )
 
@@ -1089,6 +1148,7 @@ class Simulator:
                         f"{f.origin}",
                         subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                         data={"flightId": f.flight_id, "bagId": b.bag_id},
+                        sim_time=now_sim,
                     ),
                 )
                 continue
@@ -1099,6 +1159,7 @@ class Simulator:
                     f"{f.origin}",
                     subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                     data={"flightId": f.flight_id, "bagId": b.bag_id},
+                    sim_time=now_sim,
                 ),
             )
             loaded.add(b.bag_id)
@@ -1122,6 +1183,7 @@ class Simulator:
                         f"{f.destination}",
                         subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                         data={"flightId": f.flight_id, "bagId": b.bag_id},
+                        sim_time=now_sim,
                     ),
                 )
                 b.status = "unloaded"
@@ -1147,6 +1209,7 @@ class Simulator:
                             f"{f.destination}",
                             subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                             data={"flightId": f.flight_id, "bagId": b.bag_id},
+                            sim_time=now_sim,
                         ),
                     )
                     b.status = "withheld"
@@ -1158,6 +1221,7 @@ class Simulator:
                             f"{f.destination}",
                             subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                             data={"flightId": f.flight_id, "bagId": b.bag_id},
+                            sim_time=now_sim,
                         ),
                     )
                     b.status = "cleared"
@@ -1174,6 +1238,7 @@ class Simulator:
                         f"{f.destination}",
                         subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                         data={"flightId": f.flight_id, "bagId": b.bag_id},
+                        sim_time=now_sim,
                     ),
                 )
                 b.status = "delivered"
@@ -1186,6 +1251,7 @@ class Simulator:
                             f"{f.destination}",
                             subject=f"flight/{f.flight_number}/bag/{b.bag_id}",
                             data={"flightId": f.flight_id, "bagId": b.bag_id},
+                            sim_time=now_sim,
                         ),
                     )
 

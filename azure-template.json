@@ -1,0 +1,96 @@
+{
+  "variables": {},
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "parameters": {
+    "eventHubConnectionString": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Azure Event Hubs connection string (may include EntityPath)."
+      }
+    },
+    "eventHubName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": { "description": "Event Hub name (leave blank if included as EntityPath)." }
+    },
+    "sqlServerConnectionString": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": { "description": "Optional SQL Server ODBC connection string." }
+    },
+    "imageName": {
+      "type": "string",
+      "defaultValue": "ghcr.io/clemensv/baggagehandlingsimulator:latest",
+      "metadata": { "description": "Container image reference." }
+    },
+    "logAnalyticsWorkspaceKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The primary or secondary key of the Log Analytics workspace. In the portal, you find this under Settings -> Agents -> Windows/Linux Servers -> Agent Instructions."
+      }
+    },
+    "appName": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "maxLength": 64,
+      "metadata": {
+        "description": "The name of the container instance."
+      }
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "metadata": {
+        "description": "The Id of the Log Analytics workspace. In the portal, you find this under Settings -> Agents -> Windows/Linux Servers -> Agent Instructions."
+      }
+    }
+  },
+  "resources": [
+    {
+      "properties": {
+        "diagnostics": {
+          "logAnalytics": {
+            "workspaceKey": "[parameters('logAnalyticsWorkspaceKey')]",
+            "workspaceId": "[parameters('logAnalyticsWorkspaceId')]"
+          }
+        },
+        "osType": "Linux",
+        "restartPolicy": "Always",
+        "containers": [
+          {
+            "properties": {
+              "image": "[parameters('imageName')]",
+              "environmentVariables": [
+                {
+                  "secureValue": "[parameters('eventHubConnectionString')]",
+                  "name": "EVENTHUB_CONNECTION_STRING"
+                },
+                {
+                  "value": "[parameters('eventHubName')]",
+                  "name": "EVENTHUB_NAME"
+                },
+                {
+                  "secureValue": "[parameters('sqlServerConnectionString')]",
+                  "name": "SQLSERVER_CONNECTION_STRING"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": 0.5,
+                  "memoryInGB": 1
+                }
+              }
+            },
+            "name": "[parameters('appName')]"
+          }
+        ],
+        "volumes": []
+      },
+      "dependsOn": [],
+      "location": "[resourceGroup().location]",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2021-09-01",
+      "name": "[parameters('appName')]"
+    }
+  ],
+  "contentVersion": "1.0.0.0"
+}

@@ -109,7 +109,21 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="Comma-separated list of airline codes; default built-in",
     )
 
-    parser.add_argument("--duration-minutes", type=int, default=0, help="Run time in real minutes; 0 = until Ctrl+C")
+    def _parse_duration(value: str) -> int:
+        v = value.strip().lower()
+        if v in ("forever", "infinite", "inf", "unlimited"):
+            return 0  # 0 already means run until Ctrl+C in simulator logic
+        try:
+            return int(v)
+        except ValueError as e:
+            raise argparse.ArgumentTypeError("duration-minutes must be an integer or 'forever'") from e
+
+    parser.add_argument(
+        "--duration-minutes",
+        type=_parse_duration,
+        default=_parse_duration(os.getenv("SIM_DURATION_MINUTES", "0")),
+        help="Run time in real minutes; 0 or 'forever' = until Ctrl+C (env: SIM_DURATION_MINUTES)",
+    )
 
     # Output
     out = parser.add_argument_group("Output")
