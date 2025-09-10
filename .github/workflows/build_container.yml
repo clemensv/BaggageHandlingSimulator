@@ -42,6 +42,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Prepare image and context
+        id: prep-image
+        shell: bash
+        run: |
+          DOCKERFILE_DIR="${{ matrix.dockerfile }}"
+          if [ "$DOCKERFILE_DIR" = "." ]; then
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+            CONTEXT="."
+            DOCKERFILE_PATH="Dockerfile"
+          else
+            SAFE=$(echo "$DOCKERFILE_DIR" | sed 's|/|-|g' | sed 's|[^a-zA-Z0-9_-]|-|g')
+            IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${SAFE}"
+            CONTEXT="./$DOCKERFILE_DIR"
+            DOCKERFILE_PATH="./$DOCKERFILE_DIR/Dockerfile"
+          fi
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "context=$CONTEXT" >> $GITHUB_OUTPUT
+          echo "dockerfile_path=$DOCKERFILE_PATH" >> $GITHUB_OUTPUT
+
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
@@ -64,10 +83,10 @@ jobs:
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934
         with:
           images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }}
+            ${{ steps.prep-image.outputs.image }}
           tags: |
-            type=raw,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }},value=${{ github.sha }}
-            type=raw,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.dockerfile }},value=latest
+            type=raw,name=${{ steps.prep-image.outputs.image }},value=${{ github.sha }}
+            type=raw,name=${{ steps.prep-image.outputs.image }},value=latest
 
       
       # Build and push Docker image with Buildx (don't push on PR)
@@ -76,8 +95,8 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
-          context: ./${{ matrix.dockerfile }}
-          file: ./${{ matrix.dockerfile }}/Dockerfile
+          context: ${{ steps.prep-image.outputs.context }}
+          file: ${{ steps.prep-image.outputs.dockerfile_path }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
