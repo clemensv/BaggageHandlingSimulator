@@ -20,6 +20,7 @@ param(
     [string]$BuildContext = ".",          # Build context for docker
     [switch]$SkipBuildIfExists,            # Skip build if tag already present in ACR
     [switch]$AllowEmptyEventHub,        # Allow running without Event Hub connection string (forces dry-run in app)
+    [switch]$Recreate,                     # Delete existing container before creating (forces new image tag pull)
         [switch]$NonInteractive,
         [switch]$Help
 )
@@ -49,6 +50,7 @@ Parameters:
     -BuildContext <dir>            Docker build context (default: current directory)
     -SkipBuildIfExists             Do not rebuild if the image:tag already exists in ACR
     -AllowEmptyEventHub            Permit deployment without Event Hub connection (app auto --dry-run)
+    -Recreate                      If container exists, delete and create anew (forces fresh image pull)
     -NonInteractive                Do not prompt; fail for missing required values (except EventHub when allowed)
     -Help                          Show this help
 
@@ -183,6 +185,18 @@ $registryPassword = az acr credential show --name $RegistryName --query password
 $registryUsername = az acr credential show --name $RegistryName --query username --output tsv
 
 $existingContainer = az container show --resource-group $ResourceGroup --name $AppName --query name --output tsv 2>$null
+
+if ($existingContainer -and $Recreate) {
+    Write-Host "Deleting existing container '$AppName' (Recreate specified)..."
+    az container delete --resource-group $ResourceGroup --name $AppName --yes | Out-Null
+    # Wait until deletion completes
+    for ($i=0; $i -lt 30; $i++) {
+        Start-Sleep -Seconds 2
+        $stillExists = az container show --resource-group $ResourceGroup --name $AppName --query name --output tsv 2>$null
+        if (-not $stillExists) { break }
+    }
+    $existingContainer = $null
+}
 $secureVars = @("EVENTHUB_CONNECTION_STRING=$EventHubConnectionString")
 if ($SqlConnectionString) { $secureVars += "SQLSERVER_CONNECTION_STRING=$SqlConnectionString" }
 $envArgs = @()
