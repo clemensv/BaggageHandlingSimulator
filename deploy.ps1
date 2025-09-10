@@ -6,6 +6,7 @@ param(
         [string]$Location = "",
         [string]$RegistryName = "",
         [string]$ImageName = "bhsim",
+    [string]$ImageTag = "latest",
         [string]$EventHubConnectionString = "",
         [string]$EventHubName = "",
         [string]$SqlConnectionString = "",
@@ -15,6 +16,10 @@ param(
     [string]$SqlDatabase = "",            # e.g. flight_ops_db
     [string]$SqlFlightsTable = "dbo.Flights", # Target table for INSERT permissions
     [switch]$GrantSqlPermissions,          # When set, attempt to create MI user & grant INSERT
+    [string]$Dockerfile = "Dockerfile",    # Path to Dockerfile
+    [string]$BuildContext = ".",          # Build context for docker
+    [switch]$SkipBuildIfExists,            # Skip build if tag already present in ACR
+    [switch]$AllowEmptyEventHub,        # Allow running without Event Hub connection string (forces dry-run in app)
         [switch]$NonInteractive,
         [switch]$Help
 )
@@ -29,7 +34,8 @@ Parameters:
     -Location <region>             Azure region (e.g. westeurope)
     -RegistryName <acrName>        Existing ACR name (no FQDN)
     -ImageName <image>             Image repository (default: bhsim)
-    -EventHubConnectionString <cs> Event Hubs connection string (required)
+    -ImageTag <tag>                Image tag (default: latest)
+    -EventHubConnectionString <cs> Event Hubs connection string (required unless -AllowEmptyEventHub)
     -EventHubName <hub>            Event Hub name (if not in connection string)
     -SqlConnectionString <cs>      Optional SQL Server ODBC connection string
     -ManagedIdentity               Enable system-assigned managed identity on container instance
@@ -39,7 +45,11 @@ Parameters:
     -SqlFlightsTable <schema.tbl>  Table to grant INSERT (default: dbo.Flights)
     -GrantSqlPermissions           After deploy, create user for MI & grant INSERT (and SELECT) on table
     (If -SqlConnectionString not supplied but -SqlServer & -SqlDatabase provided, a connection string will be constructed automatically using Managed Identity or Interactive auth.)
-    -NonInteractive                Do not prompt; fail for missing required values
+    -Dockerfile <path>             Dockerfile path (default: ./Dockerfile)
+    -BuildContext <dir>            Docker build context (default: current directory)
+    -SkipBuildIfExists             Do not rebuild if the image:tag already exists in ACR
+    -AllowEmptyEventHub            Permit deployment without Event Hub connection (app auto --dry-run)
+    -NonInteractive                Do not prompt; fail for missing required values (except EventHub when allowed)
     -Help                          Show this help
 
 Examples:
@@ -54,16 +64,20 @@ if (-not $NonInteractive) {
     if (-not [string]::IsNullOrEmpty($changeAppName)) { $AppName = $changeAppName }
 }
 
-if ([string]::IsNullOrEmpty($EventHubConnectionString) -and -not $NonInteractive) {
-    $EventHubConnectionString = Read-Host "`r`nProvide the Azure Event Hubs connection string (may include EntityPath)"
+if ([string]::IsNullOrEmpty($EventHubConnectionString) -and -not $AllowEmptyEventHub) {
+    if (-not $NonInteractive) {
+        $EventHubConnectionString = Read-Host "`r`nProvide the Azure Event Hubs connection string (may include EntityPath)"
+    }
+    if ([string]::IsNullOrEmpty($EventHubConnectionString)) { Write-Host "Event Hubs connection string required (omit or use -AllowEmptyEventHub for dry-run)."; exit 1 }
 }
-if ([string]::IsNullOrEmpty($EventHubConnectionString)) { Write-Host "Event Hubs connection string required."; exit 1 }
 
 # Try to extract Event Hub name if not provided
-if ([string]::IsNullOrEmpty($EventHubName)) {
-    if ($EventHubConnectionString -match "EntityPath=([^;]+)") { $EventHubName = $Matches[1] }
+if (-not [string]::IsNullOrEmpty($EventHubConnectionString)) {
+    if ([string]::IsNullOrEmpty($EventHubName)) {
+        if ($EventHubConnectionString -match "EntityPath=([^;]+)") { $EventHubName = $Matches[1] }
+    }
+    if ([string]::IsNullOrEmpty($EventHubName) -and -not $NonInteractive) { $EventHubName = Read-Host "Enter Event Hub name (if not in connection string)" }
 }
-if ([string]::IsNullOrEmpty($EventHubName)) { $EventHubName = Read-Host "Enter Event Hub name (if not in connection string)" }
 
 if ([string]::IsNullOrEmpty($SqlConnectionString) -and -not $NonInteractive) {
     $SqlConnectionString = Read-Host "(Optional) Provide SQL Server ODBC connection string or press ENTER to skip"
@@ -134,17 +148,46 @@ $AcrName = "$RegistryName.azurecr.io"
 $existingRegistry = az acr show --name $RegistryName --query name --output tsv 2>$null
 if (-not $existingRegistry) { Write-Host "Container Registry '$RegistryName' not found."; exit 1 }
 
-# Log in to the Azure Container Registry
-az acr login --name $RegistryName
+# Determine if image:tag exists already (before login to avoid unnecessary auth if skipping build)
+$imageExists = $false
+try {
+    $tagCount = az acr repository show-tags --name $RegistryName --repository $ImageName --query "[?@=='$ImageTag'] | length(@)" -o tsv 2>$null
+    if ($tagCount -and [int]$tagCount -gt 0) { $imageExists = $true }
+} catch { }
+
+# Build & push image if needed
+if (-not $imageExists -or -not $SkipBuildIfExists) {
+    $actionMsg = if ($imageExists -and -not $SkipBuildIfExists) { "Rebuilding existing image ${ImageName}:$ImageTag" } else { "Building image ${ImageName}:$ImageTag" }
+    Write-Host $actionMsg
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        Write-Host "Docker CLI not found. Install Docker or use 'az acr build' approach."; exit 1
+    }
+    # Login prior to push (ignore if already logged in)
+    az acr login --name $RegistryName | Out-Null
+    $fullImage = "$AcrName/${ImageName}:$ImageTag"
+    $buildArgs = @('build', '-f', $Dockerfile, '-t', $fullImage, $BuildContext)
+    Write-Host "docker $($buildArgs -join ' ')"
+    docker @buildArgs
+    if ($LASTEXITCODE -ne 0) { Write-Host "Docker build failed."; exit 1 }
+    docker push $fullImage
+    if ($LASTEXITCODE -ne 0) { Write-Host "Docker push failed."; exit 1 }
+} else {
+    Write-Host "Image ${ImageName}:$ImageTag already exists in ACR; skipping build (SkipBuildIfExists specified)."
+}
+
+# Log in & retrieve credentials (still needed for container create unless using MI)
+az acr login --name $RegistryName | Out-Null
 
 
 $registryPassword = az acr credential show --name $RegistryName --query passwords[0].value --output tsv
 $registryUsername = az acr credential show --name $RegistryName --query username --output tsv
 
 $existingContainer = az container show --resource-group $ResourceGroup --name $AppName --query name --output tsv 2>$null
-$envArgs = @('--secure-environment-variables', "EVENTHUB_CONNECTION_STRING=$EventHubConnectionString")
+$secureVars = @("EVENTHUB_CONNECTION_STRING=$EventHubConnectionString")
+if ($SqlConnectionString) { $secureVars += "SQLSERVER_CONNECTION_STRING=$SqlConnectionString" }
+$envArgs = @()
+if ($secureVars.Count -gt 0) { $envArgs += @('--secure-environment-variables') + $secureVars }
 if ($EventHubName) { $envArgs += @('--environment-variables', "EVENTHUB_NAME=$EventHubName") }
-if ($SqlConnectionString) { $envArgs += @('--secure-environment-variables', "SQLSERVER_CONNECTION_STRING=$SqlConnectionString") }
 if ($ManagedIdentity) { $envArgs += @('--assign-identity') }
 
 $commandArgs = @()
@@ -153,8 +196,8 @@ if ($Command) { $commandArgs = @('--command-line', $Command) }
 if (-not $existingContainer) {
     az container create --resource-group $ResourceGroup `
         --name $AppName `
-        --image "$AcrName/${ImageName}:latest" `
-    --os-type Linux `
+        --image "$AcrName/${ImageName}:$ImageTag" `
+        --os-type Linux `
         --cpu 1 `
         --memory 2 `
         --restart-policy Always `
@@ -171,22 +214,24 @@ if (-not $existingContainer) {
 Write-Host "Deployment complete."
 
 if ($GrantSqlPermissions -and $ManagedIdentity) {
+    # Attempt automatic grant ONLY if sqlcmd works with current AAD context; otherwise show manual script.
     if (-not $SqlServer -or -not $SqlDatabase) {
-        Write-Warning "GrantSqlPermissions requested but -SqlServer or -SqlDatabase missing. Skipping SQL grant."; return
+        Write-Warning "GrantSqlPermissions requested but -SqlServer or -SqlDatabase missing. Skipping grant.";
     }
-    # Validate sqlcmd availability
-    if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
-        Write-Warning "sqlcmd not found on PATH. Install Azure SQL tools to enable automatic permission grant."; return
-    }
-    $fullServer = "tcp:$SqlServer.database.windows.net,1433"
-    $tableParts = $SqlFlightsTable.Split('.')
-    if ($tableParts.Count -ne 2) { Write-Warning "SqlFlightsTable '$SqlFlightsTable' not schema-qualified (schema.table). Skipping."; return }
-    $schema = $tableParts[0]; $table = $tableParts[1]
-    $sql = @"
+    else {
+        # Normalize server name (allow FQDN input)
+        $normalizedServer = $SqlServer
+        if ($normalizedServer -match "\.database\.windows\.net$") { $normalizedServer = $normalizedServer -replace "\.database\.windows\.net$","" }
+        $fullServer = "tcp:$normalizedServer.database.windows.net,1433"
+        $tableParts = $SqlFlightsTable.Split('.')
+        if ($tableParts.Count -ne 2) { Write-Warning "SqlFlightsTable '$SqlFlightsTable' not schema-qualified (schema.table). Skipping automatic grant."; $tableParts = @('dbo','Flights') }
+        $schema = $tableParts[0]; $table = $tableParts[1]
+
+        $sql = @"
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$AppName')
-    BEGIN
-        CREATE USER [$AppName] FROM EXTERNAL PROVIDER;
-    END;
+BEGIN
+    CREATE USER [$AppName] FROM EXTERNAL PROVIDER;
+END;
 IF NOT EXISTS (
     SELECT 1 FROM sys.database_permissions p
     JOIN sys.objects o ON p.major_id = o.object_id
@@ -197,15 +242,36 @@ BEGIN
     GRANT SELECT, INSERT ON OBJECT::[$schema].[$table] TO [$AppName];
 END;
 "@
-    Write-Host "Granting database permissions (user=$AppName, table=$SqlFlightsTable) ..."
-    $maxAttempts = 5; $attempt = 1; $delay = 5
-    while ($attempt -le $maxAttempts) {
-        $rc = 0
-        sqlcmd -S $fullServer -d $SqlDatabase -C -b -G -Q $sql 2>&1 | ForEach-Object { $_ }
-        $rc = $LASTEXITCODE
-        if ($rc -eq 0) { Write-Host "SQL permissions applied."; break }
-        if ($attempt -eq $maxAttempts) { Write-Warning "Failed to apply SQL permissions after $attempt attempts (exit $rc)."; break }
-        Write-Host "Retrying in $delay seconds (attempt $attempt failed with $rc) ..."; Start-Sleep -Seconds $delay; $attempt++
+        Write-Host "Attempting automatic SQL permission grant using Azure AD access token (user=$AppName, table=$schema.$table)..."
+        $token = $null
+        try { $token = az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv 2>$null } catch {}
+        if (-not $token) {
+            Write-Warning "Could not obtain Azure AD access token. Falling back to manual instructions.";
+        } else {
+            $connString = "Server=$fullServer;Database=$SqlDatabase;Encrypt=True;TrustServerCertificate=False;";
+            $granted = $false
+            for ($i=1; $i -le 3 -and -not $granted; $i++) {
+                try {
+                    $conn = [System.Data.SqlClient.SqlConnection]::new($connString)
+                    $conn.AccessToken = $token
+                    $conn.Open()
+                    $cmd = $conn.CreateCommand(); $cmd.CommandText = $sql; $cmd.CommandTimeout = 30; [void]$cmd.ExecuteNonQuery();
+                    $conn.Close(); $granted = $true; Write-Host "SQL permissions ensured.";
+                } catch {
+                    Write-Warning "Grant attempt $i failed: $($_.Exception.Message)";
+                    Start-Sleep -Seconds 5
+                }
+            }
+            if (-not $granted) { Write-Warning "Automatic grant failed after retries." }
+        }
+        if (-not $granted) {
+            $grantScript = @"
+-- Connect with Azure AD admin to database [$SqlDatabase]
+CREATE USER [$AppName] FROM EXTERNAL PROVIDER;
+GRANT SELECT, INSERT ON OBJECT::${SqlFlightsTable} TO [$AppName];
+"@
+            Write-Host $grantScript
+        }
     }
 }
 

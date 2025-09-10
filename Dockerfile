@@ -12,6 +12,8 @@ LABEL org.opencontainers.image.license="MIT"
 # Set the working directory in the container
 WORKDIR /app
 
+# (ODBC driver install removed to speed build and stabilize container; SQL persistence will be inactive unless driver added later.)
+
 # Copy only the files required to install and run the simulator
 COPY pyproject.toml ./
 COPY src/ ./src/
@@ -34,6 +36,7 @@ ENV EVENTHUB_CONNECTION_STRING="" \
 	SIM_NOT_COLLECTED_RATE="0.005" \
 	SIM_CE_MODE="structured"
 
-# Use entrypoint so additional CLI args can be appended at docker run time. Duration defaults via env var.
-ENTRYPOINT ["bhsim"]
+# Use explicit python -m invocation for reliability & early diagnostics (avoids potential console script issues)
+ENV PYTHONUNBUFFERED=1
+ENTRYPOINT ["python", "-m", "baggage_simulator.cli"]
 CMD []
