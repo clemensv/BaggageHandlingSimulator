@@ -11,6 +11,10 @@ param(
         [string]$SqlConnectionString = "",
     [switch]$ManagedIdentity,
     [string]$Command = "",
+    [string]$SqlServer = "",              # e.g. flightopsdb (without .database.windows.net)
+    [string]$SqlDatabase = "",            # e.g. flight_ops_db
+    [string]$SqlFlightsTable = "dbo.Flights", # Target table for INSERT permissions
+    [switch]$GrantSqlPermissions,          # When set, attempt to create MI user & grant INSERT
         [switch]$NonInteractive,
         [switch]$Help
 )
@@ -30,6 +34,10 @@ Parameters:
     -SqlConnectionString <cs>      Optional SQL Server ODBC connection string
     -ManagedIdentity               Enable system-assigned managed identity on container instance
     -Command <cmd>                 Override container command (e.g. 'bhsim --clock-speed 1 ...')
+    -SqlServer <name>              Azure SQL logical server name (without .database.windows.net) for permission grant
+    -SqlDatabase <name>            Azure SQL database name
+    -SqlFlightsTable <schema.tbl>  Table to grant INSERT (default: dbo.Flights)
+    -GrantSqlPermissions           After deploy, create user for MI & grant INSERT (and SELECT) on table
     -NonInteractive                Do not prompt; fail for missing required values
     -Help                          Show this help
 
@@ -151,4 +159,43 @@ if (-not $existingContainer) {
 }
 
 Write-Host "Deployment complete."
+
+if ($GrantSqlPermissions -and $ManagedIdentity) {
+    if (-not $SqlServer -or -not $SqlDatabase) {
+        Write-Warning "GrantSqlPermissions requested but -SqlServer or -SqlDatabase missing. Skipping SQL grant."; return
+    }
+    # Validate sqlcmd availability
+    if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
+        Write-Warning "sqlcmd not found on PATH. Install Azure SQL tools to enable automatic permission grant."; return
+    }
+    $fullServer = "tcp:$SqlServer.database.windows.net,1433"
+    $tableParts = $SqlFlightsTable.Split('.')
+    if ($tableParts.Count -ne 2) { Write-Warning "SqlFlightsTable '$SqlFlightsTable' not schema-qualified (schema.table). Skipping."; return }
+    $schema = $tableParts[0]; $table = $tableParts[1]
+    $sql = @"
+IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$AppName')
+    BEGIN
+        CREATE USER [$AppName] FROM EXTERNAL PROVIDER;
+    END;
+IF NOT EXISTS (
+    SELECT 1 FROM sys.database_permissions p
+    JOIN sys.objects o ON p.major_id = o.object_id
+    JOIN sys.database_principals dp ON p.grantee_principal_id = dp.principal_id
+    WHERE dp.name = N'$AppName' AND o.schema_id = SCHEMA_ID(N'$schema') AND o.name = N'$table' AND p.permission_name = 'INSERT'
+)
+BEGIN
+    GRANT SELECT, INSERT ON OBJECT::[$schema].[$table] TO [$AppName];
+END;
+"@
+    Write-Host "Granting database permissions (user=$AppName, table=$SqlFlightsTable) ..."
+    $maxAttempts = 5; $attempt = 1; $delay = 5
+    while ($attempt -le $maxAttempts) {
+        $rc = 0
+        sqlcmd -S $fullServer -d $SqlDatabase -C -b -G -Q $sql 2>&1 | ForEach-Object { $_ }
+        $rc = $LASTEXITCODE
+        if ($rc -eq 0) { Write-Host "SQL permissions applied."; break }
+        if ($attempt -eq $maxAttempts) { Write-Warning "Failed to apply SQL permissions after $attempt attempts (exit $rc)."; break }
+        Write-Host "Retrying in $delay seconds (attempt $attempt failed with $rc) ..."; Start-Sleep -Seconds $delay; $attempt++
+    }
+}
 
