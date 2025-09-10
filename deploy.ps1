@@ -71,6 +71,8 @@ if ([string]::IsNullOrEmpty($SqlConnectionString) -and -not $NonInteractive) {
 
 # Auto-construct SQL connection string if not provided but server & database specified
 if (-not $SqlConnectionString -and $SqlServer -and $SqlDatabase) {
+    # Allow user to pass either bare server name or FQDN *.database.windows.net
+    if ($SqlServer -match "\.database\.windows\.net$") { $SqlServer = $SqlServer -replace "\.database\.windows\.net$","" }
     $authMode = if ($ManagedIdentity) { 'ActiveDirectoryManagedIdentity' } else { 'ActiveDirectoryInteractive' }
     $SqlConnectionString = "Driver={ODBC Driver 18 for SQL Server};Server=tcp:$SqlServer.database.windows.net,1433;Database=$SqlDatabase;Encrypt=yes;TrustServerCertificate=no;Authentication=$authMode"
 }
@@ -152,6 +154,7 @@ if (-not $existingContainer) {
     az container create --resource-group $ResourceGroup `
         --name $AppName `
         --image "$AcrName/${ImageName}:latest" `
+    --os-type Linux `
         --cpu 1 `
         --memory 2 `
         --restart-policy Always `
