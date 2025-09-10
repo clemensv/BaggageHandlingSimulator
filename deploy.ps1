@@ -38,6 +38,7 @@ Parameters:
     -SqlDatabase <name>            Azure SQL database name
     -SqlFlightsTable <schema.tbl>  Table to grant INSERT (default: dbo.Flights)
     -GrantSqlPermissions           After deploy, create user for MI & grant INSERT (and SELECT) on table
+    (If -SqlConnectionString not supplied but -SqlServer & -SqlDatabase provided, a connection string will be constructed automatically using Managed Identity or Interactive auth.)
     -NonInteractive                Do not prompt; fail for missing required values
     -Help                          Show this help
 
@@ -66,6 +67,12 @@ if ([string]::IsNullOrEmpty($EventHubName)) { $EventHubName = Read-Host "Enter E
 
 if ([string]::IsNullOrEmpty($SqlConnectionString) -and -not $NonInteractive) {
     $SqlConnectionString = Read-Host "(Optional) Provide SQL Server ODBC connection string or press ENTER to skip"
+}
+
+# Auto-construct SQL connection string if not provided but server & database specified
+if (-not $SqlConnectionString -and $SqlServer -and $SqlDatabase) {
+    $authMode = if ($ManagedIdentity) { 'ActiveDirectoryManagedIdentity' } else { 'ActiveDirectoryInteractive' }
+    $SqlConnectionString = "Driver={ODBC Driver 18 for SQL Server};Server=tcp:$SqlServer.database.windows.net,1433;Database=$SqlDatabase;Encrypt=yes;TrustServerCertificate=no;Authentication=$authMode"
 }
 
 # Login to Azure if not already logged in
