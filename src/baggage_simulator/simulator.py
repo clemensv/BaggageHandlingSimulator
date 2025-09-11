@@ -35,6 +35,7 @@ def cloudevent(event_type: str, source: str, subject: str, data: Dict[str, Any],
         "source": source,
         "subject": subject,
         "time": (sim_time or datetime.now(timezone.utc)).isoformat(),
+        "dataschema": f"https://rthmsitmtcy11476370.westcentralus.messagingcatalog.azure.net/schemagroups/8310cc93-e5d0-4be9-b78c-2f2709cc4de8/schemas/{event_type}/versions/v1",
         "datacontenttype": "application/json",
     }
     return CloudEvent(attrs, data)
@@ -187,6 +188,41 @@ class Simulator:
         # current simulated time = _start_sim + simulated_elapsed
         # This keeps the simulation monotonic and robust to system clock jumps.
 
+    def _connect_with_managed_identity(
+        self,
+        server_fqdn: str,
+        database: str,
+        uid_client_or_object_id: str | None = None,
+        login_timeout_sec: int = 30,
+    ) -> Any:
+        """Open a pyodbc connection using ODBC Driver 18 + ActiveDirectoryMsi.
+
+        Args:
+            server_fqdn: e.g. "flightopsdb.database.windows.net".
+            database: Target database name.
+            uid_client_or_object_id: Client ID (preferred on App Service/ACI) or object ID for user-assigned MI.
+                                     Use None for system-assigned MI.
+            login_timeout_sec: Login timeout in seconds.
+
+        Returns:
+            An open pyodbc.Connection.
+        """
+        import pyodbc  # type: ignore
+        
+        parts = [
+            "Driver={ODBC Driver 18 for SQL Server}",
+            f"Server=tcp:{server_fqdn},1433",
+            f"Database={database}",
+            "Encrypt=Yes",
+            "TrustServerCertificate=No",
+            "Authentication=ActiveDirectoryMsi",
+            f"LoginTimeout={login_timeout_sec}",
+        ]
+        if uid_client_or_object_id:
+            parts.append(f"UID={uid_client_or_object_id}")
+        conn_str = ";".join(parts) + ";"
+        return pyodbc.connect(conn_str, autocommit=True)
+
     async def _ensure_clients(self) -> None:
         if self.cfg.dry_run:
             # In dry-run we do not require external services
@@ -246,7 +282,40 @@ class Simulator:
                     self._log(f"Token auth failed: {e}", style="yellow")
                     # Fall through to try original connection string
             
-            # Standard connection
+            elif "Authentication=ActiveDirectoryMsi" in self.cfg.sql_conn:
+                # Use clean MSI authentication approach
+                try:
+                    # Extract server and database from connection string
+                    server_fqdn = None
+                    database = None
+                    for part in self.cfg.sql_conn.split(';'):
+                        part = part.strip()
+                        if part.startswith('Server='):
+                            server_val = part.split('=', 1)[1].strip()
+                            # Handle tcp: prefix and port
+                            if server_val.startswith('tcp:'):
+                                server_val = server_val[4:]
+                            if ',' in server_val:
+                                server_val = server_val.split(',')[0]
+                            server_fqdn = server_val
+                        elif part.startswith('Database='):
+                            database = part.split('=', 1)[1].strip()
+                    
+                    if not server_fqdn or not database:
+                        raise ValueError("Could not extract server and database from connection string")
+                    
+                    # Use proper MSI connection approach
+                    self._conn = self._connect_with_managed_identity(
+                        server_fqdn=server_fqdn,
+                        database=database,
+                        uid_client_or_object_id=None,  # System-assigned MSI
+                        login_timeout_sec=30
+                    )
+                    self._log("Connected to SQL Server using clean MSI authentication", style="green")
+                    return
+                except Exception as e:
+                    self._log(f"Clean MSI auth failed: {e}", style="yellow")
+            # Standard connection fallback
             self._conn = pyodbc.connect(self.cfg.sql_conn, autocommit=True)
 
         # Clients are created lazily here. This method will raise if non-dry-run
@@ -1321,7 +1390,7 @@ class Simulator:
             except Exception:
                 subject = None
             # collect well-known CloudEvent attributes
-            for k in ("id", "type", "source", "subject", "time", "datacontenttype"):
+            for k in ("id", "type", "source", "subject", "time", "datacontenttype", "dataschema"):
                 try:
                     v = evt.get(k) if hasattr(evt, "get") else evt[k]
                 except Exception:
@@ -1332,7 +1401,7 @@ class Simulator:
             payload = (evt.get("data") if isinstance(evt, dict) else {}) or {}
             event_type = str(evt.get("type") or "")
             subject = evt.get("subject")
-            for k in ("id", "type", "source", "subject", "time", "datacontenttype"):
+            for k in ("id", "type", "source", "subject", "time", "datacontenttype", "dataschema"):
                 if k in evt:
                     attrs[k] = evt.get(k)
         else:

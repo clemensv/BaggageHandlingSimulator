@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Base image
-FROM python:3.10-slim
+FROM python:3.10-bookworm
 
 # OCI metadata
 LABEL org.opencontainers.image.source="https://github.com/clemensv/BaggageHandlingSimulator"
@@ -12,7 +12,15 @@ LABEL org.opencontainers.image.license="MIT"
 # Set the working directory in the container
 WORKDIR /app
 
-# (ODBC driver install removed to speed build and stabilize container; SQL persistence will be inactive unless driver added later.)
+# Install ODBC Driver 18 for SQL Server (enables SQL persistence)
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl gnupg2 apt-transport-https ca-certificates unixodbc-dev \
+	&& curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft-prod.gpg \
+	&& echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/microsoft-prod.list \
+	&& apt-get update \
+	&& ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Copy only the files required to install and run the simulator
 COPY pyproject.toml ./
@@ -27,9 +35,9 @@ ENV EVENTHUB_CONNECTION_STRING="" \
 	EVENTHUB_NAME="" \
 	SQLSERVER_CONNECTION_STRING="" \
 	SIM_DURATION_MINUTES="0" \
-	SIM_CLOCK_SPEED="60.0" \
-	SIM_FLIGHT_INTERVAL_MINUTES="5" \
-	SIM_MAX_ACTIVE_FLIGHTS="0" \
+	SIM_CLOCK_SPEED="1" \
+	SIM_FLIGHT_INTERVAL_MINUTES="1" \
+	SIM_MAX_ACTIVE_FLIGHTS="120" \
 	SIM_LOSS_RATE="0.002" \
 	SIM_INSPECT_RATE="0.01" \
 	SIM_REJECT_RATE="0.003" \

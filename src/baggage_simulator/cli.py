@@ -141,7 +141,51 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
+    import sys, traceback
+    # Optional tee of stdout/stderr to a log file so we can inspect output after container exit.
+    # Set BHSIM_LOG_FILE to desired path (default /tmp/bhsim.log). This is lightweight and
+    # does not introduce external deps. If the container is deleted the file is lost; for
+    # persistence mount an Azure File Share and point BHSIM_LOG_FILE there.
+    log_file_path = os.getenv("BHSIM_LOG_FILE", "/tmp/bhsim.log")
+    if log_file_path:
+        try:
+            class _Tee:
+                def __init__(self, original, file):
+                    self._original = original
+                    self._file = file
+                def write(self, data: str):  # type: ignore[override]
+                    try:
+                        self._original.write(data)
+                    finally:
+                        try:
+                            self._file.write(data)
+                            self._file.flush()
+                        except Exception:
+                            pass
+                def flush(self):  # type: ignore[override]
+                    try:
+                        self._original.flush()
+                    finally:
+                        try:
+                            self._file.flush()
+                        except Exception:
+                            pass
+            _lf = open(log_file_path, "a", encoding="utf-8", buffering=1)
+            sys.stdout = _Tee(sys.stdout, _lf)  # type: ignore
+            sys.stderr = _Tee(sys.stderr, _lf)  # type: ignore
+            print(f"[bhsim] log tee active -> {log_file_path}")
+        except Exception as _e:  # pragma: no cover - best effort
+            print(f"[bhsim] WARN could not activate log tee ({log_file_path}): {_e}")
     ns = parse_args(argv)
+    # Startup diagnostics to aid container troubleshooting
+    try:
+        eh_len = len(ns.eventhub_conn) if ns.eventhub_conn else 0
+        print(f"[bhsim] startup: eventhub_conn_present={bool(ns.eventhub_conn)} length={eh_len} eventhub_name={ns.eventhub_name or ''}")
+        print(f"[bhsim] startup: sql_conn_present={bool(ns.sql_conn)} dry_run={ns.dry_run}")
+        sys.stdout.flush()
+    except Exception:
+        pass
+    # Honor explicit intent: if user wants real run but EH missing, we let it raise later instead of silently dry-running.
 
     # If user didn't supply an explicit Event Hub name, try to extract it from
     # the connection string segment `EntityPath=<hubname>` (common in Azure
@@ -181,6 +225,14 @@ def main(argv: Optional[list[str]] = None) -> None:
         dry_run=ns.dry_run,
     )
 
+    # Optional startup delay for diagnostic purposes
+    delay_s = int(os.getenv("BHSIM_START_DELAY_SECONDS", "0"))
+    if delay_s > 0:
+        print(f"[bhsim] delaying start by {delay_s}s (BHSIM_START_DELAY_SECONDS)")
+        import time as _t
+        _t.sleep(delay_s)
+    print(f"[bhsim] config: dry_run={cfg.dry_run} ce_mode={cfg.ce_mode} clock_speed={cfg.clock_speed} flights_table={cfg.sql_table}")
+
     async def _run() -> None:
         sim = Simulator(cfg)
         try:
@@ -188,7 +240,20 @@ def main(argv: Optional[list[str]] = None) -> None:
         finally:
             await sim.close()
 
-    asyncio.run(_run())
+    try:
+        asyncio.run(_run())
+    except Exception as e:
+        print(f"[bhsim] ERROR: {e}")
+        traceback.print_exc()
+        sys.stdout.flush()
+        # Non-zero exit so orchestrator can detect failure, but logs now captured.
+        raise
+    finally:
+        # Final marker to indicate clean termination path reached
+        try:
+            print("[bhsim] exit")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
