@@ -1,8 +1,9 @@
-.create table airport_stats_passengercheckinstats (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
+.create table ['Airport.Stats.PassengerCheckinStats_v1'] (
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     airport                  : string,
     passengersCount          : long,
     flightsCount             : long,
@@ -12,12 +13,12 @@
     window                   : string
 )
 
-.alter table airport_stats_passengercheckinstats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Stats.PassengerCheckinStats_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_stats_passengercheckinstats policy streamingingestion enable
+.alter table ['Airport.Stats.PassengerCheckinStats_v1'] policy streamingingestion enable
 
 
-.alter table airport_stats_passengercheckinstats policy update
+.alter table ['Airport.Stats.PassengerCheckinStats_v1'] policy update
 ```
 [
     {
@@ -31,10 +32,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject              = tostring(subject),
-    ___source               = tostring(source),
-    ___time                 = todatetime(['time']),
     ___id                   = tostring(id),
+    ___source               = tostring(source),
+    ___type                 = tostring(type),
+    ___time                 = todatetime(['time']),
+    ___subject              = tostring(subject),
     airport                  = tostring(data.airport),
     passengersCount          = tolong(data.passengersCount),
     flightsCount             = tolong(data.flightsCount),
@@ -49,11 +51,12 @@ bags
 ```
 
 
-.create table airport_stats_baggagecheckinstats (
-    ___subject               : string,
-    ___source                : string,
-    ___time                  : datetime,
+.create table ['Airport.Stats.BaggageCheckinStats_v1'] (
     ___id                    : string,
+    ___source                : string,
+    ___type                  : string,
+    ___time                  : datetime,
+    ___subject               : string,
     baggageCount             : long,
     flightsCount             : long,
     airlinesCount            : long,
@@ -66,12 +69,12 @@ bags
     window                   : string
 )
 
-.alter table airport_stats_baggagecheckinstats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Stats.BaggageCheckinStats_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_stats_baggagecheckinstats policy streamingingestion enable
+.alter table ['Airport.Stats.BaggageCheckinStats_v1'] policy streamingingestion enable
 
 
-.alter table airport_stats_baggagecheckinstats policy update
+.alter table ['Airport.Stats.BaggageCheckinStats_v1'] policy update
 ```
 [
     {
@@ -85,10 +88,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject               = tostring(subject),
-    ___source                = tostring(source),
-    ___time                  = todatetime(['time']),
     ___id                    = tostring(id),
+    ___source                = tostring(source),
+    ___type                  = tostring(type),
+    ___time                  = todatetime(['time']),
+    ___subject               = tostring(subject),
     baggageCount             = tolong(data.baggageCount),
     flightsCount             = tolong(data.flightsCount),
     airlinesCount            = tolong(data.airlinesCount),
@@ -106,11 +110,12 @@ bags
 ```
 
 
-.create table airport_stats_flightbaggagestats (
-    ___subject              : string,
-    ___source               : string,
-    ___time                 : datetime,
+.create table ['Airport.Stats.FlightBaggageStats_v1'] (
     ___id                   : string,
+    ___source               : string,
+    ___type                 : string,
+    ___time                 : datetime,
+    ___subject              : string,
     flightNumber            : string,
     flightId                : string,
     origin                  : string,
@@ -125,12 +130,12 @@ bags
     window                  : string
 )
 
-.alter table airport_stats_flightbaggagestats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Stats.FlightBaggageStats_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_stats_flightbaggagestats policy streamingingestion enable
+.alter table ['Airport.Stats.FlightBaggageStats_v1'] policy streamingingestion enable
 
 
-.alter table airport_stats_flightbaggagestats policy update
+.alter table ['Airport.Stats.FlightBaggageStats_v1'] policy update
 ```
 [
     {
@@ -144,10 +149,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject              = tostring(subject),
-    ___source               = tostring(source),
-    ___time                 = todatetime(['time']),
     ___id                   = tostring(id),
+    ___source               = tostring(source),
+    ___type                 = tostring(type),
+    ___time                 = todatetime(['time']),
+    ___subject              = tostring(subject),
     flightNumber            = tostring(data.flightNumber),
     flightId                = tostring(data.flightId),
     origin                  = tostring(data.origin),
@@ -167,11 +173,12 @@ bags
 ```
 
 
-.create table airport_stats_destinationbaggageexceptionstats (
-    ___subject              : string,
-    ___source               : string,
-    ___time                 : datetime,
+.create table ['Airport.Stats.DestinationBaggageExceptionStats_v1'] (
     ___id                   : string,
+    ___source               : string,
+    ___type                 : string,
+    ___time                 : datetime,
+    ___subject              : string,
     flightId                : string,
     exceptionCount          : long,
     uniqueBagsCount         : long,
@@ -180,12 +187,12 @@ bags
     window                  : string
 )
 
-.alter table airport_stats_destinationbaggageexceptionstats policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Stats.DestinationBaggageExceptionStats_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_stats_destinationbaggageexceptionstats policy streamingingestion enable
+.alter table ['Airport.Stats.DestinationBaggageExceptionStats_v1'] policy streamingingestion enable
 
 
-.alter table airport_stats_destinationbaggageexceptionstats policy update
+.alter table ['Airport.Stats.DestinationBaggageExceptionStats_v1'] policy update
 ```
 [
     {
@@ -199,10 +206,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject              = tostring(subject),
-    ___source               = tostring(source),
-    ___time                 = todatetime(['time']),
     ___id                   = tostring(id),
+    ___source               = tostring(source),
+    ___type                 = tostring(type),
+    ___time                 = todatetime(['time']),
+    ___subject              = tostring(subject),
     flightId                = tostring(data.flightId),
     exceptionCount          = tolong(data.exceptionCount),
     uniqueBagsCount         = tolong(data.uniqueBagsCount),
@@ -214,3 +222,20 @@ bags
     }
 ]
 ```
+
+// Legacy table name aliases (functions for backward compatibility)
+.create-or-alter function airport_stats_passenger_checkin() {
+    ['Airport.Stats.PassengerCheckinStats_v1']
+}
+
+.create-or-alter function airport_stats_baggage_checkin() {
+    ['Airport.Stats.BaggageCheckinStats_v1']
+}
+
+.create-or-alter function airport_stats_flight_baggage() {
+    ['Airport.Stats.FlightBaggageStats_v1']
+}
+
+.create-or-alter function airport_stats_destination_baggage_exception() {
+    ['Airport.Stats.DestinationBaggageExceptionStats_v1']
+}

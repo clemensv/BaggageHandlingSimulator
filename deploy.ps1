@@ -10,6 +10,7 @@ param(
     [string]$EventHubName = "",
     [string]$SqlConnectionString = "",
     [switch]$ManagedIdentity,
+    [string]$IdentityName = "bhsim-identity",
     [string]$Command = "",
     [string]$SqlServer = "",
     [string]$SqlDatabase = "",
@@ -41,7 +42,8 @@ Parameters:
     -EventHubConnectionString <cs> Event Hubs connection string (required unless -AllowEmptyEventHub)
     -EventHubName <hub>            Event Hub name (if not in connection string)
     -SqlConnectionString <cs>      Optional SQL Server ODBC connection string
-    -ManagedIdentity               (Deprecated – system-assigned managed identity is now ALWAYS enabled)
+    -ManagedIdentity               (Deprecated – ignored; user-assigned identity always enforced)
+    -IdentityName <name>           User-assigned managed identity name (default: bhsim-identity)
     -Command <cmd>                 Override container command (e.g. 'bhsim --clock-speed 1 ...')
     -SqlServer <name>              Azure SQL logical server name (without .database.windows.net) for permission grant
     -SqlDatabase <name>            Azure SQL database name
@@ -65,7 +67,7 @@ Examples:
 
 if ($Help) { Show-Usage; exit 0 }
 
-# Enforce system-assigned managed identity regardless of switch usage (requirement: MUST be enabled)
+# Always use a user-assigned managed identity; -ManagedIdentity switch retained for backwards compatibility only
 $ManagedIdentity = $true
 
 if (-not $NonInteractive) {
@@ -152,6 +154,22 @@ $existingResourceGroup = az group show --name $ResourceGroup --query name --outp
 if (-not $existingResourceGroup) {
     az group create --name $ResourceGroup --location $Location
 }
+else {
+    # Harmonize location with existing resource group to prevent cross-region resource creation mistakes
+    try {
+        $rgInfoJson = az group show --name $ResourceGroup -o json 2>$null
+        if ($rgInfoJson) {
+            $rgInfo = $rgInfoJson | ConvertFrom-Json
+            if (-not [string]::IsNullOrEmpty($rgInfo.location)) {
+                if ([string]::IsNullOrEmpty($Location)) { $Location = $rgInfo.location }
+                elseif ($Location -ne $rgInfo.location) {
+                    Write-Host "Provided -Location '$Location' differs from existing resource group location '$($rgInfo.location)'. Using RG location." -ForegroundColor Yellow
+                    $Location = $rgInfo.location
+                }
+            }
+        }
+    } catch { Write-Warning "Failed to reconcile location with existing resource group: $($_.Exception.Message)" }
+}
 
 $AcrName = "$RegistryName.azurecr.io"
 # Create a container registry if it doesn't exist
@@ -210,7 +228,7 @@ if ($existingContainer -and $Recreate) {
 $envArgs = @()        # will be populated after optional file share logic to avoid duplicate flags
 $plainEnv = @()
 if ($EventHubConnectionString) { $plainEnv += "EVENTHUB_CONNECTION_STRING=$EventHubConnectionString" }
-if ($SqlConnectionString) { $plainEnv += "SQLSERVER_CONNECTION_STRING=$SqlConnectionString" }
+## (SQL connection string will be appended after potential user-assigned identity UID injection)
 if ($EventHubName) { $plainEnv += "EVENTHUB_NAME=$EventHubName" }
 if ($SqlFlightsTable) { $plainEnv += "SQLSERVER_FLIGHTS_TABLE=$SqlFlightsTable" }
 if ($StartDelaySeconds -gt 0) { $plainEnv += "BHSIM_START_DELAY_SECONDS=$StartDelaySeconds" }
@@ -272,7 +290,46 @@ else {
 
 # Finalize environment variable arguments (single --environment-variables flag to avoid overwriting)
 if ($plainEnv.Count -gt 0) { $envArgs += @('--environment-variables') + $plainEnv }
-if ($ManagedIdentity) { $envArgs += @('--assign-identity') }
+
+# ------------------------------------------------------------
+# Ensure / create user-assigned managed identity & inject into SQL conn string
+# ------------------------------------------------------------
+$identityArgs = @()
+Write-Host "Ensuring user-assigned managed identity '$IdentityName'..."
+$identityJson = az identity show --name $IdentityName --resource-group $ResourceGroup -o json 2>$null
+if (-not $identityJson) {
+    $identityJson = az identity create --name $IdentityName --resource-group $ResourceGroup -o json 2>$null
+    if (-not $identityJson) { Write-Host "Failed to create identity '$IdentityName'." -ForegroundColor Red; exit 1 }
+    Write-Host "Created user-assigned identity '$IdentityName'." -ForegroundColor Green
+} else { Write-Host "Identity '$IdentityName' exists." }
+$identityObj = $null
+try { $identityObj = $identityJson | ConvertFrom-Json } catch { Write-Host "Failed to parse identity JSON." -ForegroundColor Red; exit 1 }
+$userAssignedIdentityResourceId = $identityObj.id
+$userAssignedIdentityClientId  = $identityObj.clientId
+$userAssignedIdentityPrincipalId = $identityObj.principalId
+Write-Host "Identity resourceId=$userAssignedIdentityResourceId clientId=$userAssignedIdentityClientId principalId=$userAssignedIdentityPrincipalId"
+
+# Patch SQL connection string to include UID when using user-assigned MI and ActiveDirectoryMsi auth
+if ($SqlConnectionString -and $SqlConnectionString -match 'ActiveDirectoryMsi' -and $SqlConnectionString -notmatch 'UID=') {
+    if ($SqlConnectionString.Trim().EndsWith(';')) { $SqlConnectionString += "UID=$userAssignedIdentityClientId" } else { $SqlConnectionString += ";UID=$userAssignedIdentityClientId" }
+}
+elseif (-not $SqlConnectionString -and $SqlServer -and $SqlDatabase) {
+    # Construct if omitted earlier (happens if user relied on auto logic) including UID
+    if ($SqlServer -match "\.database\.windows\.net$") { $SqlServer = $SqlServer -replace "\.database\.windows\.net$","" }
+    $SqlConnectionString = "Driver={ODBC Driver 18 for SQL Server};Server=tcp:$SqlServer.database.windows.net,1433;Database=$SqlDatabase;Encrypt=yes;TrustServerCertificate=no;Authentication=ActiveDirectoryMsi;UID=$userAssignedIdentityClientId"
+}
+
+# Ensure env var reflects possibly updated connection string
+$plainEnv = $plainEnv | Where-Object { -not ($_ -like 'SQLSERVER_CONNECTION_STRING=*') }
+if ($SqlConnectionString) { $plainEnv += "SQLSERVER_CONNECTION_STRING=$SqlConnectionString" }
+
+# Rebuild envArgs (replace prior value)
+$envArgs = @()
+if ($plainEnv.Count -gt 0) { $envArgs += @('--environment-variables') + $plainEnv }
+
+# Assign identity to container group
+if ($userAssignedIdentityResourceId) { $identityArgs = @('--assign-identity', $userAssignedIdentityResourceId) }
+
 
 # -----------------------------
 # Debug Mode Preparation
@@ -391,7 +448,8 @@ if (-not $existingContainer) {
         --memory 2 `
         --restart-policy $restartPolicy `
         @envArgs `
-    @volumeArgs `
+        @identityArgs `
+        @volumeArgs `
         @commandArgs `
         --registry-password $registryPassword `
         --registry-username $registryUsername | Out-Null
@@ -420,6 +478,10 @@ if ($GrantSqlPermissions -and $ManagedIdentity) {
         # Attempt to discover the managed identity object id & display name (may differ from container name)
         $miPrincipalId = $null; $miDisplayName = $null; $miAppId = $null
         try { $miPrincipalId = az container show --resource-group $ResourceGroup --name $AppName --query identity.principalId -o tsv 2>$null } catch {}
+        if (-not $miPrincipalId) {
+            # Try user-assigned identity principal (already obtained earlier)
+            $miPrincipalId = $userAssignedIdentityPrincipalId
+        }
         if ($miPrincipalId) {
             try { 
                 $spInfo = az ad sp show --id $miPrincipalId --query "{displayName: displayName, appId: appId}" -o json 2>$null | ConvertFrom-Json

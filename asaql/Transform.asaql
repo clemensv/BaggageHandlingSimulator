@@ -1,8 +1,8 @@
 --Init Query
 WITH Events AS
 (
-  SELECT * 
-    FROM [airport-stream] TIMESTAMP BY [time]
+  SELECT *, CAST(time AS datetime) AS time
+    FROM [airport-stream] TIMESTAMP BY CAST(time AS datetime)
 ),
 BaggageEvents AS
 (
@@ -31,12 +31,12 @@ AirportPassengerCheckinStats AS
         COUNT(DISTINCT data.flightId) AS flightsCount,
         COUNT(DISTINCT data.airline) AS airlinesCount,
         COUNT(DISTINCT data.destination) AS destinationAirportsCount,
-        MAX(time) AS WindowEndTime,
-        MAX(time) AS time,
-        System.Window().Id AS [window]
+        MAX(CAST(time AS datetime)) AS WindowEndTime,
+        MAX(CAST(time AS datetime)) AS time,
+        'perhour' AS [window]
     FROM PassengerEvents
     WHERE type = 'Airport.Passenger.Checkin'
-    GROUP BY data.origin, Windows(Window('perminute', HoppingWindow(minute, 1, 1)), Window('perhour',HoppingWindow(minute, 60, 1)))
+    GROUP BY data.origin, HoppingWindow(minute, 60, 1)
 ),
 BaggageCheckinStats AS
 (
@@ -49,12 +49,12 @@ BaggageCheckinStats AS
         AVG(data.weightKg) AS avgBagWeightKg,
         MIN(data.weightKg) AS minBagWeightKg,
         MAX(weightKg) AS maxBagWeightKg,
-        MAX(time) AS WindowEndTime,
-        MAX(time) AS time,
-        System.Window().Id AS [window]
+        MAX(CAST(time AS datetime)) AS WindowEndTime,
+        MAX(CAST(time AS datetime)) AS time,
+        'perhour' AS [window]
     FROM BaggageEvents
     WHERE type = 'Airport.Baggage.Checkin'
-    GROUP BY Windows(Window('perhour',HoppingWindow(minute, 60, 1)),Window('perminute',HoppingWindow(minute, 1, 1))), data.origin
+    GROUP BY HoppingWindow(minute, 60, 1), data.origin
 ),
 FlightBaggageStats AS
 (
@@ -68,8 +68,8 @@ FlightBaggageStats AS
         MIN(data.weightKg) AS minBagWeightKg,
         MAX(data.weightKg) AS maxBagWeightKg,
         SUM(data.weightKg) AS totalBagWeightKg,
-        MAX(time) AS WindowEndTime,
-        MAX(time) AS time,
+        MAX(CAST(time AS datetime)) AS WindowEndTime,
+        MAX(CAST(time AS datetime)) AS time,
         'total' AS [window]
     FROM BaggageEvents
     WHERE type = 'Airport.Baggage.Checkin'
@@ -84,10 +84,10 @@ DestinationBaggageExceptionStats AS
         checkin.data.destination AS destination,
         MAX(bex.time) AS WindowEndTime,
         MAX(bex.time) AS time,
-        System.Window().Id AS [window]
+        'perhour' AS [window]
     FROM BaggageExceptions AS bex JOIN BaggageEvents AS checkin ON DATEDIFF(hour,bex,checkin) BETWEEN 0 AND 24 AND bex.data.bagId = checkin.data.bagId
     WHERE checkin.type = 'Airport.Baggage.Checkin'
-    GROUP BY bex.data.flightId, checkin.data.destination, Windows(Window('perhour',HoppingWindow(minute, 60, 1)),Window('perminute',HoppingWindow(minute, 1, 1)))
+    GROUP BY bex.data.flightId, checkin.data.destination, HoppingWindow(minute, 60, 1)
 )
 
 SELECT specversion,

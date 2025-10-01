@@ -108,6 +108,12 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         default=None,
         help="Comma-separated list of airline codes; default built-in",
     )
+    a.add_argument(
+        "--max-flight-duration",
+        type=float,
+        default=float(os.getenv("SIM_MAX_FLIGHT_DURATION", "0")),
+        help="Maximum flight duration in hours to restrict route selection (useful for short-haul testing)",
+    )
 
     def _parse_duration(value: str) -> int:
         v = value.strip().lower()
@@ -142,17 +148,21 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[list[str]] = None) -> None:
     import sys, traceback
+    ns = parse_args(argv)
+    
     # Optional tee of stdout/stderr to a log file so we can inspect output after container exit.
     # Set BHSIM_LOG_FILE to desired path (default /tmp/bhsim.log). This is lightweight and
     # does not introduce external deps. If the container is deleted the file is lost; for
     # persistence mount an Azure File Share and point BHSIM_LOG_FILE there.
-    log_file_path = os.getenv("BHSIM_LOG_FILE", "/tmp/bhsim.log")
+    # Only enable log tee when --verbose is set to avoid interfering with Rich console output
+    log_file_path = os.getenv("BHSIM_LOG_FILE", "/tmp/bhsim.log") if getattr(ns, "verbose", False) else None
     if log_file_path:
         try:
             class _Tee:
                 def __init__(self, original, file):
                     self._original = original
                     self._file = file
+                
                 def write(self, data: str):  # type: ignore[override]
                     try:
                         self._original.write(data)
@@ -162,6 +172,7 @@ def main(argv: Optional[list[str]] = None) -> None:
                             self._file.flush()
                         except Exception:
                             pass
+                
                 def flush(self):  # type: ignore[override]
                     try:
                         self._original.flush()
@@ -170,13 +181,16 @@ def main(argv: Optional[list[str]] = None) -> None:
                             self._file.flush()
                         except Exception:
                             pass
+                
+                def __getattr__(self, name: str):
+                    """Proxy all other attributes to the original stream"""
+                    return getattr(self._original, name)
             _lf = open(log_file_path, "a", encoding="utf-8", buffering=1)
             sys.stdout = _Tee(sys.stdout, _lf)  # type: ignore
             sys.stderr = _Tee(sys.stderr, _lf)  # type: ignore
             print(f"[bhsim] log tee active -> {log_file_path}")
         except Exception as _e:  # pragma: no cover - best effort
             print(f"[bhsim] WARN could not activate log tee ({log_file_path}): {_e}")
-    ns = parse_args(argv)
     # Startup diagnostics to aid container troubleshooting
     try:
         eh_len = len(ns.eventhub_conn) if ns.eventhub_conn else 0
@@ -218,9 +232,10 @@ def main(argv: Optional[list[str]] = None) -> None:
         not_collected_rate=ns.not_collected_rate,
         airports_file=ns.airports_file,
         airlines=(ns.airlines.split(",") if ns.airlines else None),
+        max_flight_duration=ns.max_flight_duration,
         duration_minutes=ns.duration_minutes,
-    ce_mode=ns.ce_mode,
-    verbose=getattr(ns, "verbose", False),
+        ce_mode=ns.ce_mode,
+        verbose=getattr(ns, "verbose", False),
         enable_console=(not ns.quiet),
         dry_run=ns.dry_run,
     )

@@ -1,0 +1,97 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"location": { "type": "string", "defaultValue": "centralus" },
+		"containerGroupName": { "type": "string" },
+		"imageName": { "type": "string", "metadata": { "description": "Full image name incl. registry, e.g. bhsimacr.azurecr.io/bhsim" } },
+		"imageTag": { "type": "string", "defaultValue": "latest" },
+		"registryLoginServer": { "type": "string" },
+		"registryUsername": { "type": "string" },
+		"registryPassword": { "type": "securestring" },
+		"eventHubConnectionString": { "type": "securestring" },
+		"eventHubName": { "type": "string" },
+		"sqlServer": { "type": "string", "metadata": { "description": "FQDN of Azure SQL logical server (e.g. flightopsdb.database.windows.net)" } },
+		"sqlDatabase": { "type": "string" },
+		"sqlFlightsTable": { "type": "string", "defaultValue": "dbo.Flights" },
+		"userAssignedIdentityResourceId": { "type": "string", "metadata": { "description": "Resource ID of the user-assigned managed identity" } },
+		"clockSpeed": { "type": "string", "defaultValue": "60" },
+		"maxActiveFlights": { "type": "string", "defaultValue": "40" },
+		"fileShareName": { "type": "string", "defaultValue": "share" },
+		"storageAccountName": { "type": "string" },
+		"storageAccountKey": { "type": "securestring" },
+		"logFilePath": { "type": "string", "defaultValue": "/mnt/share/bhsim.log" }
+	},
+	"variables": {
+		"sqlConnectionString": "[concat('Driver={ODBC Driver 18 for SQL Server};Server=tcp:', parameters('sqlServer'), ',1433;Database=', parameters('sqlDatabase'), ';Encrypt=yes;TrustServerCertificate=no;Authentication=ActiveDirectoryMsi')]",
+		"registryImageFull": "[concat(parameters('imageName'), ':', parameters('imageTag'))]",
+		"azureFileVolumeName": "filesharevol"
+	},
+	"resources": [
+		{
+			"type": "Microsoft.ContainerInstance/containerGroups",
+			"apiVersion": "2021-09-01",
+			"name": "[parameters('containerGroupName')]",
+			"location": "[parameters('location')]",
+			"identity": {
+				"type": "UserAssigned",
+				"userAssignedIdentities": {
+					"[parameters('userAssignedIdentityResourceId')]": {}
+				}
+			},
+			"properties": {
+				"osType": "Linux",
+				"restartPolicy": "Always",
+				"containers": [
+					{
+						"name": "[parameters('containerGroupName')]",
+						"properties": {
+							"image": "[variables('registryImageFull')]",
+							"resources": {
+								"requests": { "cpu": 1, "memoryInGb": 1.5 }
+							},
+							"environmentVariables": [
+								{ "name": "EVENTHUB_CONNECTION_STRING", "secureValue": "[parameters('eventHubConnectionString')]" },
+								{ "name": "EVENTHUB_NAME", "value": "[parameters('eventHubName')]" },
+								{ "name": "SQLSERVER_CONNECTION_STRING", "value": "[variables('sqlConnectionString')]" },
+								{ "name": "SQLSERVER_FLIGHTS_TABLE", "value": "[parameters('sqlFlightsTable')]" },
+								{ "name": "BHSIM_LOG_FILE", "value": "[parameters('logFilePath')]" },
+								{ "name": "BHSIM_CLOCK_SPEED", "value": "[parameters('clockSpeed')]" },
+								{ "name": "BHSIM_MAX_ACTIVE_FLIGHTS", "value": "[parameters('maxActiveFlights')]" }
+							],
+							"volumeMounts": [
+								{
+									"name": "[variables('azureFileVolumeName')]",
+									"mountPath": "/mnt/share"
+								}
+							]
+						}
+					}
+				],
+				"imageRegistryCredentials": [
+					{
+						"server": "[parameters('registryLoginServer')]",
+						"username": "[parameters('registryUsername')]",
+						"password": "[parameters('registryPassword')]"
+					}
+				],
+				"volumes": [
+					{
+						"name": "[variables('azureFileVolumeName')]",
+						"azureFile": {
+							"shareName": "[parameters('fileShareName')]",
+							"storageAccountName": "[parameters('storageAccountName')]",
+							"storageAccountKey": "[parameters('storageAccountKey')]"
+						}
+					}
+				]
+			}
+		}
+	],
+	"outputs": {
+		"containerIdentity": {
+			"type": "string",
+			"value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups', parameters('containerGroupName')),'2021-09-01').identity.principalId]"
+		}
+	}
+}

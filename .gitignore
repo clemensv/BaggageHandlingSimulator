@@ -1,5 +1,10 @@
 scratch.txt
 
+# Deployment temporary files
+deployment_run.log
+logs_utf8.txt
+*-role-assignment.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

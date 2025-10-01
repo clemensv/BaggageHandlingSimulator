@@ -1,9 +1,12 @@
-.create table airport_passenger_checkin
+
+
+.create table ['Airport.Passenger.Checkin_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     flightNumber : string,
     airline      : string,
@@ -14,9 +17,9 @@
     name         : string
 )
 
-.alter table airport_passenger_checkin policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Passenger.Checkin_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_passenger_checkin policy update
+.alter table ['Airport.Passenger.Checkin_v1'] policy update
 ```
 [
   {
@@ -30,10 +33,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
-    ___id      = tostring(id),
+    ___id        = tostring(id),
+    ___source    = tostring(source),
+    ___type      = tostring(type),
+    ___time      = todatetime(['time']),
+    ___subject   = tostring(subject),
     flightId     = tostring(data.flightId),
     flightNumber = tostring(data.flightNumber),
     airline      = tostring(data.airline),
@@ -49,12 +53,13 @@ bags
 ```
 
 
-.create table airport_baggage_checkin
+.create table ['Airport.Baggage.Checkin_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     flightNumber : string,
     airline      : string,
@@ -66,9 +71,9 @@ bags
     weightKg     : real
 )
 
-.alter table airport_baggage_checkin policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.Checkin_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_checkin policy update
+.alter table ['Airport.Baggage.Checkin_v1'] policy update
 ```
 [
   {
@@ -82,10 +87,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
-    ___id      = tostring(id),
+    ___id        = tostring(id),
+    ___source    = tostring(source),
+    ___type      = tostring(type),
+    ___time      = todatetime(['time']),
+    ___subject   = tostring(subject),
     flightId     = tostring(data.flightId),
     flightNumber = tostring(data.flightNumber),
     airline      = tostring(data.airline),
@@ -102,19 +108,20 @@ bags
 ```
 
 
-.create table airport_baggage_screened
+.create table ['Airport.Baggage.Screened_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_screened policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.Screened_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_screened policy update
+.alter table ['Airport.Baggage.Screened_v1'] policy update
 ```
 [
   {
@@ -128,10 +135,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -141,19 +149,20 @@ bags
 ```
 
 
-.create table airport_baggage_inspected
+.create table ['Airport.Baggage.Inspected_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_inspected policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.Inspected_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_inspected policy update
+.alter table ['Airport.Baggage.Inspected_v1'] policy update
 ```
 [
   {
@@ -167,10 +176,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -180,19 +190,20 @@ bags
 ```
 
 
-.create table airport_baggage_rejected
+.create table ['Airport.Baggage.Rejected_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_rejected policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.Rejected_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_rejected policy update
+.alter table ['Airport.Baggage.Rejected_v1'] policy update
 ```
 [
   {
@@ -206,10 +217,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -219,19 +231,20 @@ bags
 ```
 
 
-.create table airport_baggage_loaded
+.create table ['Airport.Baggage.Loaded_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_loaded policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.Loaded_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_loaded policy update
+.alter table ['Airport.Baggage.Loaded_v1'] policy update
 ```
 [
   {
@@ -245,10 +258,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -258,19 +272,20 @@ bags
 ```
 
 
-.create table airport_baggage_unloaded
+.create table ['Airport.Baggage.Unloaded_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_unloaded policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.Unloaded_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_unloaded policy update
+.alter table ['Airport.Baggage.Unloaded_v1'] policy update
 ```
 [
   {
@@ -284,10 +299,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -297,19 +313,20 @@ bags
 ```
 
 
-.create table airport_baggage_customs_screened
+.create table ['Airport.Baggage.CustomsScreened_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_customs_screened policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.CustomsScreened_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_customs_screened policy update
+.alter table ['Airport.Baggage.CustomsScreened_v1'] policy update
 ```
 [
   {
@@ -323,10 +340,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -336,19 +354,20 @@ bags
 ```
 
 
-.create table airport_baggage_customs_withheld
+.create table ['Airport.Baggage.CustomsWithheld_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_customs_withheld policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.CustomsWithheld_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_customs_withheld policy update
+.alter table ['Airport.Baggage.CustomsWithheld_v1'] policy update
 ```
 [
   {
@@ -362,10 +381,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -375,19 +395,20 @@ bags
 ```
 
 
-.create table airport_baggage_delivered_on_belt
+.create table ['Airport.Baggage.DeliveredOnBelt_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_delivered_on_belt policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.DeliveredOnBelt_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_delivered_on_belt policy update
+.alter table ['Airport.Baggage.DeliveredOnBelt_v1'] policy update
 ```
 [
   {
@@ -401,10 +422,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -414,19 +436,20 @@ bags
 ```
 
 
-.create table airport_baggage_not_collected
+.create table ['Airport.Baggage.NotCollected_v1']
 (
-    ___subject   : string,
-    ___source    : string,
-    ___time      : datetime,
     ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
     flightId     : string,
     bagId        : string
 )
 
-.alter table airport_baggage_not_collected policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+.alter table ['Airport.Baggage.NotCollected_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
 
-.alter table airport_baggage_not_collected policy update
+.alter table ['Airport.Baggage.NotCollected_v1'] policy update
 ```
 [
   {
@@ -440,10 +463,11 @@ let arrays = airport_events
 bags
 | union arrays
 | project
-    ___subject = tostring(subject),
-    ___source  = tostring(source),
-    ___time    = todatetime(['time']),
     ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
     flightId   = tostring(data.flightId),
     bagId      = tostring(data.bagId)",
     "IsTransactional": false,
@@ -495,7 +519,7 @@ bags
           checkinClosed=unixtime_nanoseconds_todatetime(tolong(after.CheckinClosedUtc)),
           completed=unixtime_nanoseconds_todatetime(tolong(after.CompletedUtc)),
           capacity=tolong(after.Capacity),
-          created=unixtime_nanoseconds_todatetime(tolong(after.CreatedUtc))",
+          created=unixtime_nanoseconds_todatetime(tolong(after.CreatedUtc)),
           updated=now()",
     "IsTransactional": false,
     "PropagateIngestionProperties": false
@@ -506,4 +530,49 @@ bags
 .create materialized-view flights_current on table flights {
     flights
     | summarize arg_max(updated, *) by flightId
+}
+
+// Legacy table name aliases (functions for backward compatibility)
+.create-or-alter function airport_passenger_checkin() {
+    ['Airport.Passenger.Checkin_v1']
+}
+
+.create-or-alter function airport_baggage_checkin() {
+    ['Airport.Baggage.Checkin_v1']
+}
+
+.create-or-alter function airport_baggage_screened() {
+    ['Airport.Baggage.Screened_v1']
+}
+
+.create-or-alter function airport_baggage_inspected() {
+    ['Airport.Baggage.Inspected_v1']
+}
+
+.create-or-alter function airport_baggage_rejected() {
+    ['Airport.Baggage.Rejected_v1']
+}
+
+.create-or-alter function airport_baggage_loaded() {
+    ['Airport.Baggage.Loaded_v1']
+}
+
+.create-or-alter function airport_baggage_unloaded() {
+    ['Airport.Baggage.Unloaded_v1']
+}
+
+.create-or-alter function airport_baggage_customs_screened() {
+    ['Airport.Baggage.CustomsScreened_v1']
+}
+
+.create-or-alter function airport_baggage_customs_withheld() {
+    ['Airport.Baggage.CustomsWithheld_v1']
+}
+
+.create-or-alter function airport_baggage_delivered_on_belt() {
+    ['Airport.Baggage.DeliveredOnBelt_v1']
+}
+
+.create-or-alter function airport_baggage_not_collected() {
+    ['Airport.Baggage.NotCollected_v1']
 }

@@ -42,15 +42,15 @@ def cloudevent(event_type: str, source: str, subject: str, data: Dict[str, Any],
 
 
 ALLOWED_AIRCRAFT = {
-    # type: (min, max) typical seats
-    "B747": (366, 410),
-    "A380": (500, 575),
-    "B777": (235, 312),
-    "A350": (300, 350),
-    "B737": (130, 210),
-    "A320": (140, 195),
-    "CRJ700": (66, 78),
-    "A220": (100, 135),
+    # type: (min, max) typical seats, category
+    "B747": (366, 410, "long"),      # Long haul wide-body
+    "A380": (500, 575, "long"),      # Long haul wide-body
+    "B777": (235, 312, "long"),      # Long haul wide-body
+    "A350": (300, 350, "long"),      # Long haul wide-body
+    "B737": (130, 210, "short"),     # Short/medium haul narrow-body
+    "A320": (140, 195, "short"),     # Short/medium haul narrow-body
+    "CRJ700": (66, 78, "short"),     # Regional jet
+    "A220": (100, 135, "short"),     # Short haul narrow-body
 }
 
 DEFAULT_AIRLINES = [
@@ -58,22 +58,116 @@ DEFAULT_AIRLINES = [
     "AZ",  # AeroZoom
     "SK",  # SkyNation
     "LT",  # LuftTram
+    "BW",  # BlueWings
+    "CX",  # CloudExpress
+    "DL",  # DeltaLux
+    "EW",  # EastWind
+    "GF",  # GoldenFlight
+    "HL",  # HighLine
+    "JA",  # JetAero
+    "ML",  # MegaLine
+    "NV",  # NovaAir
+    "PX",  # PrimeXpress
 ]
 
-DEFAULT_AIRPORT_PAIRS = [
-    ("FRA", "LHR"),
-    ("FRA", "JFK"),
-    ("FRA", "CDG"),
-    ("LHR", "JFK"),
-    ("LHR", "SFO"),
-    ("CDG", "NRT"),
-    ("JFK", "LAX"),
-    ("JFK", "MIA"),
-    ("LAX", "SEA"),
-    ("SEA", "SFO"),
-    ("MUC", "FRA"),
-    ("MUC", "LHR"),
+@dataclass(frozen=True)
+class RouteInfo:
+    """Route information with duration and classification."""
+    origin: str
+    destination: str
+    duration_hours: float
+    
+    @property
+    def is_short_haul(self) -> bool:
+        """Routes ≤3 hours are considered short haul."""
+        return self.duration_hours <= 3.0
+    
+    @property
+    def reverse(self) -> 'RouteInfo':
+        """Create the reverse direction of this route."""
+        return RouteInfo(self.destination, self.origin, self.duration_hours)
+
+
+DEFAULT_ROUTES = [
+    # Existing routes
+    RouteInfo("FRA", "LHR", 1.5),    # Short haul
+    RouteInfo("FRA", "JFK", 8.5),    # Long haul
+    RouteInfo("FRA", "CDG", 1.25),   # Short haul
+    RouteInfo("LHR", "JFK", 8.0),    # Long haul
+    RouteInfo("LHR", "SFO", 11.0),   # Long haul
+    RouteInfo("CDG", "NRT", 12.0),   # Long haul
+    RouteInfo("JFK", "LAX", 6.0),    # Long haul
+    RouteInfo("JFK", "MIA", 3.0),    # Short haul
+    RouteInfo("LAX", "SEA", 2.5),    # Short haul
+    RouteInfo("SEA", "SFO", 2.0),    # Short haul
+    RouteInfo("MUC", "FRA", 1.0),    # Short haul
+    RouteInfo("MUC", "LHR", 2.0),    # Short haul
+    
+    # Additional short haul routes (≤3 hours) - 15 new routes
+    RouteInfo("AMS", "LHR", 1.2),    # Amsterdam - London
+    RouteInfo("AMS", "CDG", 1.3),    # Amsterdam - Paris
+    RouteInfo("BCN", "MAD", 1.4),    # Barcelona - Madrid
+    RouteInfo("BCN", "FCO", 2.2),    # Barcelona - Rome
+    RouteInfo("FCO", "ATH", 2.1),    # Rome - Athens
+    RouteInfo("ATH", "IST", 1.8),    # Athens - Istanbul
+    RouteInfo("IST", "VIE", 2.3),    # Istanbul - Vienna
+    RouteInfo("VIE", "PRG", 1.1),    # Vienna - Prague
+    RouteInfo("PRG", "WAW", 1.3),    # Prague - Warsaw
+    RouteInfo("WAW", "BUD", 1.2),    # Warsaw - Budapest
+    RouteInfo("BUD", "ZUR", 1.8),    # Budapest - Zurich
+    RouteInfo("ZUR", "GVA", 0.8),    # Zurich - Geneva
+    RouteInfo("GVA", "NCE", 1.2),    # Geneva - Nice
+    RouteInfo("NCE", "MAD", 2.1),    # Nice - Madrid
+    RouteInfo("MAD", "LIS", 1.3),    # Madrid - Lisbon
+    
+    # Additional long haul routes (>3 hours) - 15 new routes
+    RouteInfo("LHR", "DXB", 7.0),    # London - Dubai
+    RouteInfo("CDG", "HKG", 12.5),   # Paris - Hong Kong
+    RouteInfo("FRA", "SIN", 12.2),   # Frankfurt - Singapore
+    RouteInfo("AMS", "BKK", 11.5),   # Amsterdam - Bangkok
+    RouteInfo("FCO", "JFK", 9.0),    # Rome - New York
+    RouteInfo("MAD", "MEX", 9.5),    # Madrid - Mexico City
+    RouteInfo("LIS", "GIG", 8.5),    # Lisbon - Rio de Janeiro
+    RouteInfo("ZUR", "PVG", 11.8),   # Zurich - Shanghai
+    RouteInfo("VIE", "NRT", 11.2),   # Vienna - Tokyo
+    RouteInfo("IST", "LAX", 13.5),   # Istanbul - Los Angeles
+    RouteInfo("DXB", "SYD", 14.0),   # Dubai - Sydney
+    RouteInfo("HKG", "SFO", 11.8),   # Hong Kong - San Francisco
+    RouteInfo("SIN", "LHR", 13.2),   # Singapore - London
+    RouteInfo("BKK", "CDG", 11.0),   # Bangkok - Paris
+    RouteInfo("PVG", "JFK", 14.5),   # Shanghai - New York
+    
+    # Additional 20 airport pairs - mix of short and long haul
+    # Short haul routes (≤3 hours) - 10 new routes
+    RouteInfo("DUB", "LHR", 1.5),    # Dublin - London
+    RouteInfo("CPH", "AMS", 1.2),    # Copenhagen - Amsterdam
+    RouteInfo("STO", "CPH", 1.1),    # Stockholm - Copenhagen
+    RouteInfo("OSL", "STO", 1.0),    # Oslo - Stockholm
+    RouteInfo("HEL", "STO", 1.2),    # Helsinki - Stockholm
+    RouteInfo("BRU", "AMS", 0.9),    # Brussels - Amsterdam
+    RouteInfo("LUX", "FRA", 0.8),    # Luxembourg - Frankfurt
+    RouteInfo("MXP", "ZUR", 1.1),    # Milan - Zurich
+    RouteInfo("TXL", "MUC", 1.0),    # Berlin - Munich
+    RouteInfo("HAM", "TXL", 0.9),    # Hamburg - Berlin
+    
+    # Long haul routes (>3 hours) - 10 new routes
+    RouteInfo("LHR", "YYZ", 8.5),    # London - Toronto
+    RouteInfo("CDG", "YUL", 8.0),    # Paris - Montreal
+    RouteInfo("FRA", "ORD", 9.0),    # Frankfurt - Chicago
+    RouteInfo("AMS", "EWR", 8.2),    # Amsterdam - Newark
+    RouteInfo("CPH", "IAD", 8.8),    # Copenhagen - Washington DC
+    RouteInfo("DXB", "BOM", 3.2),    # Dubai - Mumbai
+    RouteInfo("DOH", "BKK", 6.5),    # Doha - Bangkok
+    RouteInfo("AUH", "LHR", 7.5),    # Abu Dhabi - London
+    RouteInfo("KWI", "FRA", 6.0),    # Kuwait - Frankfurt
+    RouteInfo("CAI", "CDG", 4.5),    # Cairo - Paris
 ]
+
+# Create bidirectional route list (both directions for each route)
+DEFAULT_AIRPORT_PAIRS = []
+for route in DEFAULT_ROUTES:
+    DEFAULT_AIRPORT_PAIRS.append((route.origin, route.destination))
+    DEFAULT_AIRPORT_PAIRS.append((route.destination, route.origin))
 
 
 @dataclass(slots=True)
@@ -98,6 +192,7 @@ class SimulatorConfig:
     not_collected_rate: float = 0.005
     airports_file: Optional[str] = None
     airlines: Optional[List[str]] = None
+    max_flight_duration: Optional[float] = None
     duration_minutes: int = 0
     enable_console: bool = True
     dry_run: bool = False
@@ -143,6 +238,7 @@ class Simulator:
     _pax_gender_toggle: bool
     _total_scheduled: int
     _airports: List[Tuple[str, str]]
+    _routes: List[RouteInfo]
     _airlines: List[str]
     _rng: random.Random
     _start_real: float
@@ -152,6 +248,9 @@ class Simulator:
     _eh_first_seen: Dict[str, float]
     # When all active flights are in-flight, mark the real-time moment to allow a jump.
     _inflight_only_since: Optional[float]
+    # SQL token refresh tracking
+    _sql_token_expires_at: float = 0.0
+    _last_token_refresh_check: float = 0.0
     # XReg schemas cache for lightweight validation
     _xreg_schemas: Dict[str, List[Tuple[str, Any]]]
 
@@ -169,6 +268,11 @@ class Simulator:
         self._start_sim = datetime.now(timezone.utc) + timedelta(minutes=cfg.clock_offset_minutes)
         self._airports = self._load_airports(cfg.airports_file) or DEFAULT_AIRPORT_PAIRS
         self._airlines = cfg.airlines or DEFAULT_AIRLINES
+        # Create bidirectional route list with duration information
+        self._routes = []
+        for route in DEFAULT_ROUTES:
+            self._routes.append(route)
+            self._routes.append(route.reverse)
         self._producer = None
         self._conn = None
         self._active_flights = {}
@@ -247,15 +351,42 @@ class Simulator:
                     import subprocess
                     import struct
                     
-                    # Get token from Azure CLI
+                    # Get token and expiry from Azure CLI
                     result = subprocess.run(
-                        ["az", "account", "get-access-token", "--resource", "https://database.windows.net/", "--query", "accessToken", "-o", "tsv"],
+                        ["az", "account", "get-access-token", "--resource", "https://database.windows.net/", "--query", "{accessToken:accessToken,expiresOn:expiresOn}", "-o", "json"],
                         capture_output=True,
                         text=True,
                         check=True,
                         shell=True
                     )
-                    token = result.stdout.strip()
+                    import json
+                    token_data = json.loads(result.stdout.strip())
+                    token = token_data.get("accessToken", "")
+                    expires_on = token_data.get("expiresOn", "")
+                    
+                    # Parse and store token expiry time
+                    if expires_on:
+                        try:
+                            # Try to parse ISO format manually first (common Azure format)
+                            if expires_on.endswith('Z'):
+                                expires_on = expires_on[:-1] + '+00:00'
+                            expiry_dt = datetime.fromisoformat(expires_on.replace('Z', '+00:00'))
+                            self._sql_token_expires_at = expiry_dt.timestamp()
+                            self._log(f"SQL token expires at {expiry_dt.isoformat()}", style="dim")
+                        except Exception:
+                            try:
+                                # Fallback to dateutil if available
+                                from dateutil import parser
+                                expiry_dt = parser.parse(expires_on)
+                                self._sql_token_expires_at = expiry_dt.timestamp()
+                                self._log(f"SQL token expires at {expiry_dt.isoformat()}", style="dim")
+                            except Exception as e:
+                                self._log(f"Failed to parse token expiry: {e}", style="yellow")
+                                # Set expiry to 1 hour from now as fallback
+                                self._sql_token_expires_at = time.time() + 3600
+                    else:
+                        # Default to 1 hour expiry if not provided
+                        self._sql_token_expires_at = time.time() + 3600
                     
                     if token:
                         # Prepare token for SQL connection
@@ -274,6 +405,7 @@ class Simulator:
                         # Connect using token
                         self._conn = pyodbc.connect(clean_conn_str, attrs_before={SQL_COPT_SS_ACCESS_TOKEN: token_struct}, autocommit=True)
                         self._log("Connected to SQL Server using Azure CLI token", style="green")
+                        self._log("Token refresh monitoring enabled for long-running processes", style="dim")
                         return
                 except subprocess.CalledProcessError as e: # pyright: ignore[reportPossiblyUnboundVariable]
                     self._log(f"Azure CLI not authenticated. Please run 'az login' first. Error: {e}", style="red")
@@ -321,6 +453,34 @@ class Simulator:
         # Clients are created lazily here. This method will raise if non-dry-run
         # mode is used but required connection info is missing. Lazy creation
         # allows tests and dry-run invocations to run without installing SDKs.
+
+    async def _refresh_sql_token_if_needed(self) -> None:
+        """Refresh SQL access token if it's approaching expiry."""
+        current_time = time.time()
+        
+        # Only check every 5 minutes to avoid excessive checks
+        if current_time - self._last_token_refresh_check < 300:  # 5 minutes
+            return
+            
+        self._last_token_refresh_check = current_time
+        
+        # Check if token expires within 10 minutes (600 seconds)
+        if self._sql_token_expires_at > 0 and (self._sql_token_expires_at - current_time) < 600:
+            self._log("SQL token approaching expiry, refreshing connection...", style="yellow")
+            
+            try:
+                # Close existing connection
+                if self._conn:
+                    self._conn.close()
+                    self._conn = None
+                    
+                # Reconnect (will get new token)
+                await self._ensure_clients()
+                self._log("SQL token refreshed successfully", style="green")
+                
+            except Exception as e:
+                self._log(f"Failed to refresh SQL token: {e}", style="red")
+                raise
 
     def _load_xreg_schemas(self) -> Dict[str, List[Tuple[str, Any]]]:
         """Load message field definitions from message-definitions/airport-baggage.xreg.json.
@@ -426,6 +586,38 @@ class Simulator:
                 if len(row) >= 2:
                     pairs.append((row[0].strip().upper(), row[1].strip().upper()))
         return pairs or None
+
+    def _get_suitable_aircraft(self, route: RouteInfo) -> Tuple[str, int, int]:
+        """Select appropriate aircraft for the route based on duration.
+        
+        Returns: (aircraft_type, min_capacity, max_capacity)
+        """
+        if route.is_short_haul:
+            # Short haul: prefer narrow-body and regional aircraft
+            short_haul_aircraft = [(k, v[0], v[1]) for k, v in ALLOWED_AIRCRAFT.items() 
+                                 if v[2] == "short"]
+            aircraft_type, min_cap, max_cap = self._rng.choice(short_haul_aircraft)
+        else:
+            # Long haul: prefer wide-body aircraft, but allow some narrow-body for flexibility
+            long_haul_aircraft = [(k, v[0], v[1]) for k, v in ALLOWED_AIRCRAFT.items() 
+                                if v[2] == "long"]
+            short_haul_aircraft = [(k, v[0], v[1]) for k, v in ALLOWED_AIRCRAFT.items() 
+                                 if v[2] == "short"]
+            
+            # 80% chance for wide-body on long haul, 20% for narrow-body
+            if self._rng.random() < 0.8:
+                aircraft_type, min_cap, max_cap = self._rng.choice(long_haul_aircraft)
+            else:
+                aircraft_type, min_cap, max_cap = self._rng.choice(short_haul_aircraft)
+        
+        return aircraft_type, min_cap, max_cap
+
+    def _find_route_info(self, origin: str, destination: str) -> Optional[RouteInfo]:
+        """Find route information for a given origin-destination pair."""
+        for route in self._routes:
+            if route.origin == origin and route.destination == destination:
+                return route
+        return None
 
     async def close(self) -> None:
         # stop live header first if active
@@ -538,8 +730,8 @@ class Simulator:
                 # Only count flights that have not yet released their slot (slot released after last bag unloaded)
                 active_slots_in_use = sum(1 for st in self._active_flights.values() if not st.get("slot_released", False))
                 if self.cfg.duration_minutes <= 0 and self.cfg.max_active_flights > 0:
-                    # One-shot scheduling up to max, then no more flights
-                    can_schedule_more = (self._total_scheduled < self.cfg.max_active_flights and active_slots_in_use < self.cfg.max_active_flights)
+                    # For unlimited duration runs, only check active slots, not total scheduled
+                    can_schedule_more = (active_slots_in_use < self.cfg.max_active_flights)
                 else:
                     can_schedule_more = (self.cfg.max_active_flights <= 0 or active_slots_in_use < self.cfg.max_active_flights)
                 # If all active flights are currently in-flight (departed but not yet arrived),
@@ -582,6 +774,11 @@ class Simulator:
                 with contextlib.suppress(Exception):
                     await self._flush_due_eventhub_buffers()
 
+                # Check and refresh SQL token if needed (only for Azure AD auth)
+                if self.cfg.sql_conn and "Authentication=ActiveDirectoryInteractive" in self.cfg.sql_conn:
+                    with contextlib.suppress(Exception):
+                        await self._refresh_sql_token_if_needed()
+
                 # If all active flights are in-flight and it has persisted for >= 5 real seconds,
                 # jump the simulated clock to the earliest arrival.
                 if self._inflight_only_since is not None and (time.monotonic() - self._inflight_only_since) >= 5.0:
@@ -605,10 +802,8 @@ class Simulator:
                 # check stop condition
                 if stop_at and time.monotonic() >= stop_at:
                     break
-                # If no duration specified and we scheduled up to the max, exit once all flights are retired
-                if self.cfg.duration_minutes <= 0 and self.cfg.max_active_flights > 0:
-                    if self._total_scheduled >= self.cfg.max_active_flights and len(self._active_flights) == 0:
-                        break
+                # For unlimited duration runs with max_active_flights, the simulation continues indefinitely
+                # The exit condition based on total_scheduled is removed to allow continuous operation
 
                 # Adaptive sleep: scale inversely with clock_speed so each loop advances a small,
                 # consistent amount of simulated time. Target ~30s sim per tick; clamp to 10–200ms real time
@@ -628,47 +823,107 @@ class Simulator:
 
     def _estimate_duration_hours(self, origin: str, destination: str) -> float:
         """Return a plausible block time (gate-to-gate) in hours for a route.
-        Uses a route table for known pairs and adds small variability; falls back to region heuristics.
+        Uses route information when available; falls back to region heuristics.
         """
-        # Explicit route table (hours)
-        route_hours: Dict[Tuple[str, str], float] = {
-            ("FRA", "LHR"): 1.5, ("LHR", "FRA"): 1.5,
-            ("FRA", "JFK"): 8.5, ("JFK", "FRA"): 7.5,
-            ("FRA", "CDG"): 1.25, ("CDG", "FRA"): 1.25,
-            ("LHR", "JFK"): 8.0, ("JFK", "LHR"): 7.0,
-            ("LHR", "SFO"): 11.0, ("SFO", "LHR"): 10.5,
-            ("CDG", "NRT"): 12.0, ("NRT", "CDG"): 12.0,
-            ("JFK", "LAX"): 6.0, ("LAX", "JFK"): 5.5,
-            ("JFK", "MIA"): 3.0, ("MIA", "JFK"): 3.0,
-            ("LAX", "SEA"): 2.5, ("SEA", "LAX"): 2.5,
-            ("SEA", "SFO"): 2.0, ("SFO", "SEA"): 2.0,
-            ("MUC", "FRA"): 1.0, ("FRA", "MUC"): 1.0,
-            ("MUC", "LHR"): 2.0, ("LHR", "MUC"): 2.0,
-        }
-        key = (origin, destination)
-        base = route_hours.get(key)
-        if base is None:
-            # Region fallback
-            EU = {"FRA", "LHR", "CDG", "MUC"}
-            US_EAST = {"JFK", "MIA"}
-            US_WEST = {"LAX", "SEA", "SFO"}
-            JP = {"NRT"}
-            o, d = origin.upper(), destination.upper()
-            if (o in EU and d in EU) or (o in US_WEST and d in US_WEST) or (o in US_EAST and d in US_EAST):
-                base = 1.5 if o in EU else 2.2  # intra-region avg
-            elif (o in US_EAST and d in US_WEST) or (o in US_WEST and d in US_EAST):
-                base = 5.8  # transcon
-            elif (o in EU and d in US_EAST) or (o in US_EAST and d in EU):
-                base = 7.8 if o in US_EAST else 8.6  # eastbound a bit shorter
-            elif (o in EU and d in US_WEST) or (o in US_WEST and d in EU):
-                base = 10.5
-            elif (o in JP and d in EU) or (o in EU and d in JP):
-                base = 12.0
-            elif (o in JP and (d in US_WEST or d in US_EAST)) or ((o in US_WEST or o in US_EAST) and d in JP):
-                base = 10.8 if o in US_WEST or d in US_WEST else 12.5
+        # First check if we have explicit route information
+        route_info = self._find_route_info(origin, destination)
+        if route_info:
+            # Apply small variability to route duration
+            factor = self._rng.uniform(0.9, 1.1)
+            hours = route_info.duration_hours * factor
+            return max(0.8 * route_info.duration_hours, min(1.2 * route_info.duration_hours, hours))
+        
+        # Fallback to region heuristics for unknown routes
+        EU = {"FRA", "LHR", "CDG", "MUC", "AMS", "BCN", "FCO", "ATH", "VIE", "PRG", "WAW", "BUD", "ZUR", "GVA", "NCE", "MAD", "LIS", "DUB", "CPH", "STO", "OSL", "HEL", "BRU", "LUX", "MXP", "TXL", "HAM"}
+        US_EAST = {"JFK", "MIA", "EWR", "IAD", "ORD"}
+        US_WEST = {"LAX", "SEA", "SFO"}
+        JP = {"NRT"}
+        ASIA = {"HKG", "SIN", "BKK", "PVG", "BOM"}
+        MIDDLE_EAST = {"DXB", "IST", "DOH", "AUH", "KWI", "CAI"}
+        OCEANIA = {"SYD"}
+        AMERICAS = {"MEX", "GIG"}
+        NORTH_AMERICA = {"YYZ", "YUL"}
+        
+        o, d = origin.upper(), destination.upper()
+        
+        # Determine regions
+        def get_region(airport: str) -> str:
+            if airport in EU:
+                return "EU"
+            elif airport in US_EAST:
+                return "US_EAST"
+            elif airport in US_WEST:
+                return "US_WEST"
+            elif airport in NORTH_AMERICA:
+                return "NORTH_AMERICA"
+            elif airport in JP:
+                return "JP"
+            elif airport in ASIA:
+                return "ASIA"
+            elif airport in MIDDLE_EAST:
+                return "MIDDLE_EAST"
+            elif airport in OCEANIA:
+                return "OCEANIA"
+            elif airport in AMERICAS:
+                return "AMERICAS"
             else:
-                base = 6.0  # generic fallback
-        # apply small variability and clamp to reasonable bounds
+                return "UNKNOWN"
+        
+        o_region, d_region = get_region(o), get_region(d)
+        
+        # Intra-regional flights
+        if o_region == d_region:
+            if o_region == "EU":
+                base = 1.8
+            elif o_region in ["US_EAST", "US_WEST"]:
+                base = 2.2
+            else:
+                base = 2.5
+        
+        # Inter-regional flights
+        elif {o_region, d_region} == {"US_EAST", "US_WEST"}:
+            base = 5.8  # transcon
+        elif {o_region, d_region} == {"EU", "US_EAST"}:
+            base = 8.0
+        elif {o_region, d_region} == {"EU", "US_WEST"}:
+            base = 10.5
+        elif {o_region, d_region} == {"EU", "NORTH_AMERICA"}:
+            base = 8.2  # EU to Canada
+        elif {o_region, d_region} == {"NORTH_AMERICA", "US_EAST"} or {o_region, d_region} == {"NORTH_AMERICA", "US_WEST"}:
+            base = 5.0  # Canada to US
+        elif "ASIA" in {o_region, d_region} and "EU" in {o_region, d_region}:
+            base = 11.5
+        elif "ASIA" in {o_region, d_region} and ("US_EAST" in {o_region, d_region} or "US_WEST" in {o_region, d_region}):
+            base = 12.0
+        elif "ASIA" in {o_region, d_region} and "NORTH_AMERICA" in {o_region, d_region}:
+            base = 12.5
+        elif "MIDDLE_EAST" in {o_region, d_region}:
+            if "EU" in {o_region, d_region}:
+                base = 5.5
+            elif "US_EAST" in {o_region, d_region} or "US_WEST" in {o_region, d_region}:
+                base = 13.0
+            elif "NORTH_AMERICA" in {o_region, d_region}:
+                base = 12.0
+            elif "ASIA" in {o_region, d_region}:
+                base = 4.5
+            else:
+                base = 8.0
+        elif "OCEANIA" in {o_region, d_region}:
+            if "MIDDLE_EAST" in {o_region, d_region}:
+                base = 14.0
+            else:
+                base = 15.0
+        elif "AMERICAS" in {o_region, d_region}:
+            if "EU" in {o_region, d_region}:
+                base = 9.0
+            elif "US_EAST" in {o_region, d_region} or "US_WEST" in {o_region, d_region}:
+                base = 8.0
+            else:
+                base = 8.0
+        else:
+            base = 8.0  # generic long-haul fallback
+        
+        # Apply small variability and clamp to reasonable bounds
         factor = self._rng.uniform(0.9, 1.1)
         hours = base * factor
         return max(0.8 * base, min(1.2 * base, hours))
@@ -678,43 +933,42 @@ class Simulator:
 
         Scheduling rule used here ensures check-in will start within the next
         ~20 simulated minutes by setting departure to now + 3h..3h20m. Arrival
-        is derived from a route-duration heuristic to produce realistic block times.
+        is derived from route information including duration and aircraft correlation.
         
         Special case: When clock_speed is 1, schedule flights for 1 hour from current 
         time and begin check-in immediately.
         """
         airline = self._rng.choice(self._airlines)
-        aircraft, (minc, maxc) = self._rng.choice(list(ALLOWED_AIRCRAFT.items()))
-        capacity = self._rng.randint(minc, maxc)
         
-        # Special handling for clock_speed = 1: only use short-duration routes (≤1.5 hours)
+        # Select a route (random direction)
+        available_routes = self._routes
+        
+        # Apply max_flight_duration filter if specified
+        if self.cfg.max_flight_duration is not None:
+            available_routes = [route for route in available_routes if route.duration_hours <= self.cfg.max_flight_duration]
+            if not available_routes:
+                # Fallback to shortest available routes if filter is too restrictive
+                available_routes = sorted(self._routes, key=lambda r: r.duration_hours)[:10]
+        
+        selected_route = self._rng.choice(available_routes)
+        
         if self.cfg.clock_speed == 1:
-            # Real-time mode: restrict to routes with estimated duration <= 1.5h.
-            # We predefine a small whitelist of known short routes (also verified in route table) and intersect
-            # with configured airport pairs to avoid repeatedly sampling and rejecting.
-            short_routes = {(
-                "FRA", "LHR"), ("LHR", "FRA"), ("FRA", "CDG"), ("CDG", "FRA"), ("MUC", "FRA"), ("FRA", "MUC")
-            }
-            available_short_routes = [pair for pair in self._airports if pair in short_routes]
-            if not available_short_routes:
-                # Fallback: dynamically filter any route with duration <=1.5h from the configured list
-                dyn_short = []
-                for o, d in self._airports:
-                    if self._estimate_duration_hours(o, d) <= 1.5:
-                        dyn_short.append((o, d))
-                available_short_routes = dyn_short or list(self._airports)
-            origin, destination = self._rng.choice(available_short_routes)
+            # Real-time mode: schedule departure 1 hour from now
             dep = now_sim + timedelta(hours=1)
         else:
-            origin, destination = self._rng.choice(self._airports)
             # Normal scheduling: departure so that check-in starts within next 20 sim minutes
             # check-in start is departure - 3h, so set departure to now + 3h .. 3h20m
             dep_in = timedelta(hours=3, minutes=self._rng.uniform(0, 20))
             dep = now_sim + dep_in
-            
-        # plausible route-based duration
-        dur_hours = self._estimate_duration_hours(origin, destination)
+        
+        # Select appropriate aircraft for the route
+        aircraft, minc, maxc = self._get_suitable_aircraft(selected_route)
+        capacity = self._rng.randint(minc, maxc)
+        
+        # Use route duration
+        dur_hours = selected_route.duration_hours
         arr = dep + timedelta(hours=dur_hours)
+        
         flight_number = f"{airline}{self._rng.randint(10, 9999):04d}"
         flight_id = _rand_id()
         return Flight(
@@ -722,8 +976,8 @@ class Simulator:
             airline=airline,
             flight_number=flight_number,
             aircraft=aircraft,
-            origin=origin,
-            destination=destination,
+            origin=selected_route.origin,
+            destination=selected_route.destination,
             departure_utc=dep,
             arrival_utc=arr,
             capacity=capacity,
@@ -766,12 +1020,16 @@ class Simulator:
         and tracking sets for emitted events and bag load/delivery progress.
         """
         # compute passenger count up to 95% load
-        pax_count = math.floor(self._rng.uniform(0.7, 0.95) * f.capacity)
+        pax_count = math.floor(self._rng.uniform(0.9, 1) * f.capacity)
         pax_list = [Passenger(pax_id=_rand_pax_id(self._rng), name=_rand_name(self._rng)) for _ in range(pax_count)]
         # bags: each pax 0-2 bags, average about 1.2
         bags: Dict[str, Bag] = {}
+        total_bags = 0
+        max_bags = 100
         for p in pax_list:
             bag_count = max(0, min(2, int(self._rng.gauss(1.2, 0.6))))
+            bag_count = min(max_bags - total_bags, bag_count)
+            total_bags += bag_count
             for _ in range(bag_count):
                 b = Bag(bag_id=_rand_bag_id(self._rng), pax_id=p.pax_id, weight_kg=max(8.0, self._rng.gauss(18.0, 5.0)))
                 p.bags.append(b)
