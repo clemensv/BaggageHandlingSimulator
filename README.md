@@ -1,6 +1,15 @@
 # Baggage Handling Simulator
 
-A Python CLI that simulates airport baggage handling and publishes CloudEvents to Azure Event Hubs while persisting flight schedules to SQL Server.
+A Python CLI that simulates airport baggage handling and publishes baggage and
+passenger state changes as CloudEvents to an Azure Event Hubs or Microsoft
+Fabric Eventstream endpoint simulating an airport baggage handling systems,
+while persisting flight schedules to SQL Server, simulating an airline
+operations system.
+
+The purpose of the simulator is to provide a realistic event stream and
+backing store for testing and demonstrating event-driven architectures,
+serverless functions, stream processing, and analytics in Microsoft Fabric
+and Microsoft Azure.
 
 ## Install
 
@@ -24,14 +33,6 @@ Create the SQL table:
 :r .\sql\create_flights.sql
 ```
 
-If your `dbo.Flights` table already exists, add columns used to record actual times and markers:
-
-```sql
-ALTER TABLE dbo.Flights ADD ActualDepartureUtc datetime2(7) NULL;
-ALTER TABLE dbo.Flights ADD ActualArrivalUtc   datetime2(7) NULL;
-ALTER TABLE dbo.Flights ADD CheckinClosedUtc   datetime2(7) NULL;
-ALTER TABLE dbo.Flights ADD CompletedUtc       datetime2(7) NULL;
-```
 
 ## Run
 
