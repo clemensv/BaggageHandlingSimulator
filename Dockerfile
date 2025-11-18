@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Base image
-FROM python:3.10-bookworm
+FROM python:3.14-bookworm
 
 # OCI metadata
 LABEL org.opencontainers.image.source="https://github.com/clemensv/BaggageHandlingSimulator"
